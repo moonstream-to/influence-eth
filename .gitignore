@@ -21,3 +21,4 @@
 go.work
 
 influence-eth
+.secrets/
