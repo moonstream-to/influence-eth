@@ -113,6 +113,16 @@ func CreateEventsCommand() *cobra.Command {
 	eventsCmd := &cobra.Command{
 		Use:   "events",
 		Short: "Crawl events from your Starknet RPC provider",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if providerURL == "" {
+				providerURLFromEnv := os.Getenv("STARKNET_RPC_URL")
+				if providerURLFromEnv == "" {
+					return errors.New("you must provide a provider URL using -p/--provider or set the STARKNET_RPC_URL environment variable")
+				}
+				providerURL = providerURLFromEnv
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, clientErr := rpc.NewClient(providerURL)
 			if clientErr != nil {
