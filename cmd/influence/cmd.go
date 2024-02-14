@@ -18,6 +18,8 @@ import (
 	"github.com/NethermindEth/starknet.go/rpc"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/spf13/cobra"
+
+	crew "github.com/moonstream-to/influence-eth/influence/crew"
 )
 
 var (
@@ -362,7 +364,7 @@ func CreateParseCommand() *cobra.Command {
 	return parseCmd
 }
 
-func ParseCrewTransferEvents(infile string) (*[]Influence_Contracts_Crew_Crew_Transfer, error) {
+func ParseCrewTransferEvents(infile string) (*[]crew.Influence_Contracts_Crew_Crew_Transfer, error) {
 	var inputFile *os.File
 	var readErr error
 
@@ -377,7 +379,7 @@ func ParseCrewTransferEvents(infile string) (*[]Influence_Contracts_Crew_Crew_Tr
 
 	defer inputFile.Close()
 
-	var events []Influence_Contracts_Crew_Crew_Transfer
+	var events []crew.Influence_Contracts_Crew_Crew_Transfer
 
 	scanner := bufio.NewScanner(inputFile)
 	for scanner.Scan() {
@@ -388,7 +390,7 @@ func ParseCrewTransferEvents(infile string) (*[]Influence_Contracts_Crew_Crew_Tr
 			continue
 		}
 
-		var event Influence_Contracts_Crew_Crew_Transfer
+		var event crew.Influence_Contracts_Crew_Crew_Transfer
 		unmEventErr := json.Unmarshal(line.Event, &event)
 		if unmEventErr != nil {
 			log.Printf("Error parsing Event: %v", unmErr)

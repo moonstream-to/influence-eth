@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"os"
 	"sort"
+
+	crew "github.com/moonstream-to/influence-eth/influence/crew"
 )
 
 type LeaderboardScore struct {
@@ -59,7 +61,7 @@ func FindAndDelete(original []*big.Int, delItem *big.Int) []*big.Int {
 	return original[:idx]
 }
 
-func GenerateCrewOwnersToScores(events []Influence_Contracts_Crew_Crew_Transfer) []LeaderboardScore {
+func GenerateCrewOwnersToScores(events []crew.Influence_Contracts_Crew_Crew_Transfer) []LeaderboardScore {
 	// Prepare crew owners map in format (390: 0x123)
 	crewOwners := make(map[string]string)
 	crewOwnerKeys := []TokenKey{}
@@ -102,7 +104,7 @@ func GenerateCrewOwnersToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 	return scores
 }
 
-func GenerateOwnerCrewsToScores(events []Influence_Contracts_Crew_Crew_Transfer) []LeaderboardScore {
+func GenerateOwnerCrewsToScores(events []crew.Influence_Contracts_Crew_Crew_Transfer) []LeaderboardScore {
 	// Prepare owner crews map in format (0x123: [390, 428])
 	ownerCrews := make(map[string][]*big.Int)
 	for _, event := range events {

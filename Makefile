@@ -8,4 +8,4 @@ clean:
 rebuild: clean build
 
 influence-eth:
-	go build .
+	go build cmd/influence/*.go
