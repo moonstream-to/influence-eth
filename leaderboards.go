@@ -77,53 +77,6 @@ func ParseEventFromFile[T any](filePath, expectedEventName string) ([]T, error) 
 	return events, nil
 }
 
-// func ParseCrewTransferEvents(infile string) (*[]crew.Influence_Contracts_Crew_Crew_Transfer, error) {
-// 	var inputFile *os.File
-// 	var readErr error
-
-// 	if infile != "" {
-// 		inputFile, readErr = os.Open(infile)
-// 		if readErr != nil {
-// 			return nil, fmt.Errorf("Unable to read file %s, err: %v", infile, readErr)
-// 		}
-// 	} else {
-// 		return nil, fmt.Errorf("Please specify file with events with --input flag")
-// 	}
-
-// 	defer inputFile.Close()
-
-// 	var events []crew.Influence_Contracts_Crew_Crew_Transfer
-
-// 	scanner := bufio.NewScanner(inputFile)
-// 	for scanner.Scan() {
-// 		var line PartialEvent
-// 		unmErr := json.Unmarshal(scanner.Bytes(), &line)
-// 		if unmErr != nil {
-// 			log.Printf("Error parsing JSON line: %v", unmErr)
-// 			continue
-// 		}
-
-// 		var event crew.Influence_Contracts_Crew_Crew_Transfer
-// 		unmEventErr := json.Unmarshal(line.Event, &event)
-// 		if unmEventErr != nil {
-// 			log.Printf("Error parsing Event: %v", unmErr)
-// 			continue
-// 		}
-
-// 		if event.TokenId == nil {
-// 			continue
-// 		}
-
-// 		events = append(events, event)
-// 	}
-
-// 	if scanErr := scanner.Err(); scanErr != nil {
-// 		return nil, fmt.Errorf("Error reading file: %v", scanErr)
-// 	}
-
-// 	return &events, nil
-// }
-
 func UpdateLeaderboardScores(accessToken, leaderboardId string, body io.Reader) (int, error) {
 	if MOONSTREAM_API_URL != "" {
 		MOONSTREAM_API_URL = strings.TrimRight(MOONSTREAM_API_URL, "/")
@@ -290,9 +243,11 @@ func GenerateShipAssemblyFinished(events []ShipAssemblyFinished) []LeaderboardSc
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
 		scores = append(scores, LeaderboardScore{
-			Address:    fmt.Sprintf("%d", crew),
-			Score:      len(data),
-			PointsData: data,
+			Address: fmt.Sprintf("%d", crew),
+			Score:   len(data),
+			PointsData: map[string][]ShipAssemblyFinishedScore{
+				"ships": data,
+			},
 		})
 	}
 
