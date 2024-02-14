@@ -9859,4 +9859,3 @@ func ParseEmergencyDeactivated(parameters []*felt.Felt) (EmergencyDeactivated, i
 
 	return result, currentIndex + 1, nil
 }
-

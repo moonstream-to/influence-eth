@@ -5,6 +5,6 @@ set -e
 
 PROGRAM_NAME="influence-eth"
 
-go build -o "$PROGRAM_NAME" cmd/influence/*.go
+go build -o "$PROGRAM_NAME" .
 
 ./"$PROGRAM_NAME" "$@"

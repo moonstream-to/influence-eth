@@ -6,53 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/spf13/cobra"
-
-	crew "github.com/moonstream-to/influence-eth/influence/crew"
 )
-
-var (
-	MOONSTREAM_API_URL = os.Getenv("MOONSTREAM_API_URL")
-)
-
-func UpdateLeaderboardScores(accessToken, leaderboardId string, body io.Reader) (int, error) {
-	if MOONSTREAM_API_URL != "" {
-		MOONSTREAM_API_URL = strings.TrimRight(MOONSTREAM_API_URL, "/")
-	} else {
-		MOONSTREAM_API_URL = "https://engineapi.moonstream.to"
-	}
-
-	request, requestErr := http.NewRequest("PUT", fmt.Sprintf("%s/leaderboard/%s/scores?normalize_addresses=false&overwrite=true", MOONSTREAM_API_URL, leaderboardId), body)
-	if requestErr != nil {
-		return 0, fmt.Errorf("error making requests: %v", requestErr)
-	}
-
-	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
-	request.Header.Add("Accept", "application/json")
-	request.Header.Add("Content-Type", "application/json")
-
-	timeout := time.Duration(10) * time.Second
-	httpClient := http.Client{Timeout: timeout}
-	response, responseErr := httpClient.Do(request)
-	if responseErr != nil {
-		return 0, fmt.Errorf("error parsing response: %v", responseErr)
-	}
-	defer response.Body.Close()
-
-	return response.StatusCode, nil
-
-}
 
 func CreateRootCommand() *cobra.Command {
 	// rootCmd represents the base command when called without any subcommands
@@ -364,53 +325,6 @@ func CreateParseCommand() *cobra.Command {
 	return parseCmd
 }
 
-func ParseCrewTransferEvents(infile string) (*[]crew.Influence_Contracts_Crew_Crew_Transfer, error) {
-	var inputFile *os.File
-	var readErr error
-
-	if infile != "" {
-		inputFile, readErr = os.Open(infile)
-		if readErr != nil {
-			return nil, fmt.Errorf("Unable to read file %s, err: %v", infile, readErr)
-		}
-	} else {
-		return nil, fmt.Errorf("Please specify file with events with --input flag")
-	}
-
-	defer inputFile.Close()
-
-	var events []crew.Influence_Contracts_Crew_Crew_Transfer
-
-	scanner := bufio.NewScanner(inputFile)
-	for scanner.Scan() {
-		var line PartialEvent
-		unmErr := json.Unmarshal(scanner.Bytes(), &line)
-		if unmErr != nil {
-			log.Printf("Error parsing JSON line: %v", unmErr)
-			continue
-		}
-
-		var event crew.Influence_Contracts_Crew_Crew_Transfer
-		unmEventErr := json.Unmarshal(line.Event, &event)
-		if unmEventErr != nil {
-			log.Printf("Error parsing Event: %v", unmErr)
-			continue
-		}
-
-		if event.TokenId == nil {
-			continue
-		}
-
-		events = append(events, event)
-	}
-
-	if scanErr := scanner.Err(); scanErr != nil {
-		return nil, fmt.Errorf("Error reading file: %v", scanErr)
-	}
-
-	return &events, nil
-}
-
 func CreateLeaderboardCommand() *cobra.Command {
 	leaderboardCmd := &cobra.Command{
 		Use:   "leaderboard",
@@ -422,7 +336,8 @@ func CreateLeaderboardCommand() *cobra.Command {
 
 	leaderboardCrewOwnersCmd := CreateLeaderboardCrewOwnersCommand()
 	leaderboardCrewsCmd := CreateLeaderboardCrewsCommand()
-	leaderboardCmd.AddCommand(leaderboardCrewOwnersCmd, leaderboardCrewsCmd)
+	leaderboardShipAssemblyFinishedCmd := CreateLeaderboardShipAssemblyFinishedCommand()
+	leaderboardCmd.AddCommand(leaderboardCrewOwnersCmd, leaderboardCrewsCmd, leaderboardShipAssemblyFinishedCmd)
 
 	return leaderboardCmd
 }
@@ -434,12 +349,12 @@ func CreateLeaderboardCrewOwnersCommand() *cobra.Command {
 		Use:   "crew-owners",
 		Short: "Prepare leaderboard with crews",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			events, parseEventsErr := ParseCrewTransferEvents(infile)
+			events, parseEventsErr := ParseEventFromFile[Influence_Contracts_Crew_Crew_Transfer](infile, "influence::contracts::crew::Crew::Transfer")
 			if parseEventsErr != nil {
 				return parseEventsErr
 			}
 
-			scores := GenerateCrewOwnersToScores(*events)
+			scores := GenerateCrewOwnersToScores(events)
 
 			PrepareLeaderboardOutput(scores, outfile, accessToken, leaderboardId)
 
@@ -462,12 +377,12 @@ func CreateLeaderboardCrewsCommand() *cobra.Command {
 		Use:   "crews",
 		Short: "Prepare leaderboard with crews",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			events, parseEventsErr := ParseCrewTransferEvents(infile)
+			events, parseEventsErr := ParseEventFromFile[Influence_Contracts_Crew_Crew_Transfer](infile, "influence::contracts::crew::Crew::Transfer")
 			if parseEventsErr != nil {
 				return parseEventsErr
 			}
 
-			scores := GenerateOwnerCrewsToScores(*events)
+			scores := GenerateOwnerCrewsToScores(events)
 
 			PrepareLeaderboardOutput(scores, outfile, accessToken, leaderboardId)
 
@@ -481,4 +396,32 @@ func CreateLeaderboardCrewsCommand() *cobra.Command {
 	leaderboardCrewsCmd.Flags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
 
 	return leaderboardCrewsCmd
+}
+
+func CreateLeaderboardShipAssemblyFinishedCommand() *cobra.Command {
+	var infile, outfile, accessToken, leaderboardId string
+
+	leaderboardShipAssemblyFinishedCmd := &cobra.Command{
+		Use:   "ship-assembly-finished",
+		Short: "Prepare leaderboard with finished ship assembly",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			events, parseEventsErr := ParseEventFromFile[ShipAssemblyFinished](infile, "ShipAssemblyFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := GenerateShipAssemblyFinished(events)
+
+			PrepareLeaderboardOutput(scores, outfile, accessToken, leaderboardId)
+
+			return nil
+		},
+	}
+
+	leaderboardShipAssemblyFinishedCmd.Flags().StringVarP(&infile, "infile", "i", "", "File containing crawled events from which to build the leaderboard (as produced by the \"influence-eth stark events\" command, defaults to stdin)")
+	leaderboardShipAssemblyFinishedCmd.Flags().StringVarP(&outfile, "outfile", "o", "", "File to write reparsed events to (defaults to stdout)")
+	leaderboardShipAssemblyFinishedCmd.Flags().StringVarP(&accessToken, "token", "t", "", "Moonstream user access token (could be set with MOONSTREAM_ACCESS_TOKEN environment variable)")
+	leaderboardShipAssemblyFinishedCmd.Flags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
+
+	return leaderboardShipAssemblyFinishedCmd
 }
