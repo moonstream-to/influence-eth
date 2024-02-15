@@ -343,13 +343,15 @@ func CreateLeaderboardCommand() *cobra.Command {
 
 	lCrewOwnersCmd := CreateLCrewOwnersCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	lCrewsCmd := CreateLCrewsCommand(&infile, &outfile, &accessToken, &leaderboardId)
+	l3MarketMakerR1Cmd := CreateL3MarketMakerR1Command(&infile, &outfile, &accessToken, &leaderboardId)
+	l3MarketMakerR2Cmd := CreateL3MarketMakerR2Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l4BreakingGroundR1Cmd := CreateL4BreakingGroundR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l4BreakingGroundR2Cmd := CreateL4BreakingGroundR2Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l5CityBuilderR1Cmd := CreateL5CityBuilderR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l6ExploreTheStarsR1Cmd := CreateL6ExploreTheStarsR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l7ExpandTheColonyR1Command := CreateL7ExpandTheColonyR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 
-	leaderboardCmd.AddCommand(lCrewOwnersCmd, lCrewsCmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command)
+	leaderboardCmd.AddCommand(lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command)
 
 	return leaderboardCmd
 }
@@ -394,6 +396,56 @@ func CreateLCrewsCommand(infile, outfile, accessToken, leaderboardId *string) *c
 	}
 
 	return leaderboardCrewsCmd
+}
+
+func CreateL3MarketMakerR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	l3MarketMakerR1Cmd := &cobra.Command{
+		Use:   "3-market-maker-r1",
+		Short: "Prepare leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			buyEvents, parseEventsErr := ParseEventFromFile[BuyOrderFilled](*infile, "BuyOrderFilled")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+			sellEvents, parseEventsErr := ParseEventFromFile[SellOrderFilled](*infile, "SellOrderFilled")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := Generate3MarketMakerR1(buyEvents, sellEvents)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return l3MarketMakerR1Cmd
+}
+
+func CreateL3MarketMakerR2Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	l3MarketMakerR2Cmd := &cobra.Command{
+		Use:   "3-market-maker-r2",
+		Short: "Prepare leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			buyEvents, parseEventsErr := ParseEventFromFile[BuyOrderCreated](*infile, "BuyOrderCreated")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+			sellEvents, parseEventsErr := ParseEventFromFile[SellOrderCreated](*infile, "SellOrderCreated")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := Generate3MarketMakerR2(buyEvents, sellEvents)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return l3MarketMakerR2Cmd
 }
 
 func CreateL4BreakingGroundR2Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {

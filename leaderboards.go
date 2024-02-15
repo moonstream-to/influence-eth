@@ -217,6 +217,107 @@ func GenerateOwnerCrewsToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 	return scores
 }
 
+type OrderScore struct {
+	Product uint64
+	Amount  uint64
+}
+
+type CrewOrdersScore struct {
+	CallerCrew Influence_Common_Types_Entity_Entity
+	BuyOrders  []OrderScore
+	SellOrders []OrderScore
+}
+
+func Generate3MarketMakerR1(buyEvents []BuyOrderFilled, sellEvents []SellOrderFilled) []LeaderboardScore {
+	byCrews := make(map[uint64]CrewOrdersScore)
+	for _, e := range buyEvents {
+		crewOrdersScore, ok := byCrews[e.CallerCrew.Id]
+		if !ok {
+			byCrews[e.CallerCrew.Id] = CrewOrdersScore{}
+		}
+		crewOrdersScore.BuyOrders = append(crewOrdersScore.BuyOrders, OrderScore{
+			Product: e.Product,
+			Amount:  e.Amount,
+		})
+		byCrews[e.CallerCrew.Id] = crewOrdersScore
+	}
+
+	for _, e := range sellEvents {
+		crewOrdersScore, ok := byCrews[e.CallerCrew.Id]
+		if !ok {
+			byCrews[e.CallerCrew.Id] = CrewOrdersScore{}
+		}
+		crewOrdersScore.SellOrders = append(crewOrdersScore.SellOrders, OrderScore{
+			Product: e.Product,
+			Amount:  e.Amount,
+		})
+		byCrews[e.CallerCrew.Id] = crewOrdersScore
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		is_complete := false
+		if len(data.BuyOrders) >= 5 && len(data.SellOrders) >= 1 {
+			is_complete = true
+		}
+
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   uint64(len(data.BuyOrders) + len(data.SellOrders)),
+			PointsData: map[string]any{
+				"complete": is_complete,
+				"data":     data,
+			},
+		})
+	}
+	return scores
+}
+
+func Generate3MarketMakerR2(buyEvents []BuyOrderCreated, sellEvents []SellOrderCreated) []LeaderboardScore {
+	byCrews := make(map[uint64]CrewOrdersScore)
+	for _, e := range buyEvents {
+		crewOrdersScore, ok := byCrews[e.CallerCrew.Id]
+		if !ok {
+			byCrews[e.CallerCrew.Id] = CrewOrdersScore{}
+		}
+		crewOrdersScore.BuyOrders = append(crewOrdersScore.BuyOrders, OrderScore{
+			Product: e.Product,
+			Amount:  e.Amount,
+		})
+		byCrews[e.CallerCrew.Id] = crewOrdersScore
+	}
+
+	for _, e := range sellEvents {
+		crewOrdersScore, ok := byCrews[e.CallerCrew.Id]
+		if !ok {
+			byCrews[e.CallerCrew.Id] = CrewOrdersScore{}
+		}
+		crewOrdersScore.SellOrders = append(crewOrdersScore.SellOrders, OrderScore{
+			Product: e.Product,
+			Amount:  e.Amount,
+		})
+		byCrews[e.CallerCrew.Id] = crewOrdersScore
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		is_complete := false
+		if len(data.BuyOrders) >= 5 && len(data.SellOrders) >= 1 {
+			is_complete = true
+		}
+
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   uint64(len(data.BuyOrders) + len(data.SellOrders)),
+			PointsData: map[string]any{
+				"complete": is_complete,
+				"data":     data,
+			},
+		})
+	}
+	return scores
+}
+
 type MineScore struct {
 	CallerCrew Influence_Common_Types_Entity_Entity
 	Resource   uint64
