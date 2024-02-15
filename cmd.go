@@ -326,6 +326,8 @@ func CreateParseCommand() *cobra.Command {
 }
 
 func CreateLeaderboardCommand() *cobra.Command {
+	var infile, outfile, accessToken, leaderboardId string
+
 	leaderboardCmd := &cobra.Command{
 		Use:   "leaderboard",
 		Short: "Prepare Moonstream.to leaderboards",
@@ -334,94 +336,78 @@ func CreateLeaderboardCommand() *cobra.Command {
 		},
 	}
 
-	leaderboardCrewOwnersCmd := CreateLeaderboardCrewOwnersCommand()
-	leaderboardCrewsCmd := CreateLeaderboardCrewsCommand()
-	leaderboardShipAssemblyFinishedCmd := CreateLeaderboardShipAssemblyFinishedCommand()
+	leaderboardCmd.PersistentFlags().StringVarP(&infile, "infile", "i", "", "File containing crawled events from which to build the leaderboard (as produced by the \"influence-eth stark events\" command, defaults to stdin)")
+	leaderboardCmd.PersistentFlags().StringVarP(&outfile, "outfile", "o", "", "File to write reparsed events to (defaults to stdout)")
+	leaderboardCmd.PersistentFlags().StringVarP(&accessToken, "token", "t", "", "Moonstream user access token (could be set with MOONSTREAM_ACCESS_TOKEN environment variable)")
+	leaderboardCmd.PersistentFlags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
+
+	leaderboardCrewOwnersCmd := CreateLeaderboardCrewOwnersCommand(&infile, &outfile, &accessToken, &leaderboardId)
+	leaderboardCrewsCmd := CreateLeaderboardCrewsCommand(&infile, &outfile, &accessToken, &leaderboardId)
+	leaderboardShipAssemblyFinishedCmd := CreateLeaderboardShipAssemblyFinishedCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	leaderboardCmd.AddCommand(leaderboardCrewOwnersCmd, leaderboardCrewsCmd, leaderboardShipAssemblyFinishedCmd)
 
 	return leaderboardCmd
 }
 
-func CreateLeaderboardCrewOwnersCommand() *cobra.Command {
-	var infile, outfile, accessToken, leaderboardId string
-
+func CreateLeaderboardCrewOwnersCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
 	leaderboardCrewOwnersCmd := &cobra.Command{
 		Use:   "crew-owners",
 		Short: "Prepare leaderboard with crews",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			events, parseEventsErr := ParseEventFromFile[Influence_Contracts_Crew_Crew_Transfer](infile, "influence::contracts::crew::Crew::Transfer")
+			events, parseEventsErr := ParseEventFromFile[Influence_Contracts_Crew_Crew_Transfer](*infile, "influence::contracts::crew::Crew::Transfer")
 			if parseEventsErr != nil {
 				return parseEventsErr
 			}
 
 			scores := GenerateCrewOwnersToScores(events)
 
-			PrepareLeaderboardOutput(scores, outfile, accessToken, leaderboardId)
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 
 			return nil
 		},
 	}
 
-	leaderboardCrewOwnersCmd.Flags().StringVarP(&infile, "infile", "i", "", "File containing crawled events from which to build the leaderboard (as produced by the \"influence-eth stark events\" command, defaults to stdin)")
-	leaderboardCrewOwnersCmd.Flags().StringVarP(&outfile, "outfile", "o", "", "File to write reparsed events to (defaults to stdout)")
-	leaderboardCrewOwnersCmd.Flags().StringVarP(&accessToken, "token", "t", "", "Moonstream user access token (could be set with MOONSTREAM_ACCESS_TOKEN environment variable)")
-	leaderboardCrewOwnersCmd.Flags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
-
 	return leaderboardCrewOwnersCmd
 }
 
-func CreateLeaderboardCrewsCommand() *cobra.Command {
-	var infile, outfile, accessToken, leaderboardId string
-
+func CreateLeaderboardCrewsCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
 	leaderboardCrewsCmd := &cobra.Command{
 		Use:   "crews",
 		Short: "Prepare leaderboard with crews",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			events, parseEventsErr := ParseEventFromFile[Influence_Contracts_Crew_Crew_Transfer](infile, "influence::contracts::crew::Crew::Transfer")
+			events, parseEventsErr := ParseEventFromFile[Influence_Contracts_Crew_Crew_Transfer](*infile, "influence::contracts::crew::Crew::Transfer")
 			if parseEventsErr != nil {
 				return parseEventsErr
 			}
 
 			scores := GenerateOwnerCrewsToScores(events)
 
-			PrepareLeaderboardOutput(scores, outfile, accessToken, leaderboardId)
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 
 			return nil
 		},
 	}
 
-	leaderboardCrewsCmd.Flags().StringVarP(&infile, "infile", "i", "", "File containing crawled events from which to build the leaderboard (as produced by the \"influence-eth stark events\" command, defaults to stdin)")
-	leaderboardCrewsCmd.Flags().StringVarP(&outfile, "outfile", "o", "", "File to write reparsed events to (defaults to stdout)")
-	leaderboardCrewsCmd.Flags().StringVarP(&accessToken, "token", "t", "", "Moonstream user access token (could be set with MOONSTREAM_ACCESS_TOKEN environment variable)")
-	leaderboardCrewsCmd.Flags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
-
 	return leaderboardCrewsCmd
 }
 
-func CreateLeaderboardShipAssemblyFinishedCommand() *cobra.Command {
-	var infile, outfile, accessToken, leaderboardId string
-
+func CreateLeaderboardShipAssemblyFinishedCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
 	leaderboardShipAssemblyFinishedCmd := &cobra.Command{
 		Use:   "ship-assembly-finished",
 		Short: "Prepare leaderboard with finished ship assembly",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			events, parseEventsErr := ParseEventFromFile[ShipAssemblyFinished](infile, "ShipAssemblyFinished")
+			events, parseEventsErr := ParseEventFromFile[ShipAssemblyFinished](*infile, "ShipAssemblyFinished")
 			if parseEventsErr != nil {
 				return parseEventsErr
 			}
 
 			scores := GenerateShipAssemblyFinished(events)
 
-			PrepareLeaderboardOutput(scores, outfile, accessToken, leaderboardId)
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 
 			return nil
 		},
 	}
-
-	leaderboardShipAssemblyFinishedCmd.Flags().StringVarP(&infile, "infile", "i", "", "File containing crawled events from which to build the leaderboard (as produced by the \"influence-eth stark events\" command, defaults to stdin)")
-	leaderboardShipAssemblyFinishedCmd.Flags().StringVarP(&outfile, "outfile", "o", "", "File to write reparsed events to (defaults to stdout)")
-	leaderboardShipAssemblyFinishedCmd.Flags().StringVarP(&accessToken, "token", "t", "", "Moonstream user access token (could be set with MOONSTREAM_ACCESS_TOKEN environment variable)")
-	leaderboardShipAssemblyFinishedCmd.Flags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
 
 	return leaderboardShipAssemblyFinishedCmd
 }

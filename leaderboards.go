@@ -245,7 +245,8 @@ func GenerateShipAssemblyFinished(events []ShipAssemblyFinished) []LeaderboardSc
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
 			Score:   len(data),
-			PointsData: map[string][]ShipAssemblyFinishedScore{
+			PointsData: map[string]any{
+				"complete": true,
 				"ships": data,
 			},
 		})
