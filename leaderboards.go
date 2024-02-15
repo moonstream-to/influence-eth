@@ -224,7 +224,7 @@ type ShipAssemblyFinishedScore struct {
 	Ship        Influence_Common_Types_Entity_Entity
 }
 
-func GenerateShipAssemblyFinished(events []ShipAssemblyFinished) []LeaderboardScore {
+func Generate6ExploreTheStarsR1(events []ShipAssemblyFinished) []LeaderboardScore {
 	/*
 		{"Name":"ShipAssemblyFinished","Event":{"Ship":{"Label":6,"Id":6},"DryDock":{"Label":5,"Id":57},"DryDockSlot":1,"Destination":{"Label":5,"Id":124},"FinishTime":1707753830,"CallerCrew":{"Label":1,"Id":39},"Caller":"0x24876d7edd78740466d3f80ec4cba1a43a72bbf201aec37b66e2019ea31b64d"}}
 	*/
@@ -247,10 +247,52 @@ func GenerateShipAssemblyFinished(events []ShipAssemblyFinished) []LeaderboardSc
 			Score:   len(data),
 			PointsData: map[string]any{
 				"complete": true,
-				"ships": data,
+				"data":     data,
 			},
 		})
 	}
 
+	return scores
+}
+
+type ConstructionScore struct {
+	CallerCrew   Influence_Common_Types_Entity_Entity
+	Asteroid     Influence_Common_Types_Entity_Entity
+	Building     Influence_Common_Types_Entity_Entity
+	BuildingType uint64
+}
+
+func Generate7ExpandTheColonyR1(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
+	byCrews := make(map[uint64][]ConstructionScore)
+	for _, cpe := range conPlanEvents {
+		if cpe.Asteroid.Id == 1 {
+			continue
+		}
+		for _, cfe := range conFinEvents {
+			if cfe.CallerCrew.Id == cpe.CallerCrew.Id && cfe.Building.Id == cpe.Building.Id {
+				if _, ok := byCrews[cfe.CallerCrew.Id]; !ok {
+					byCrews[cfe.CallerCrew.Id] = []ConstructionScore{}
+				}
+				byCrews[cfe.CallerCrew.Id] = append(byCrews[cfe.CallerCrew.Id], ConstructionScore{
+					CallerCrew:   cpe.CallerCrew,
+					Asteroid:     cpe.Asteroid,
+					Building:     cpe.Building,
+					BuildingType: cpe.BuildingType,
+				})
+			}
+		}
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   len(data),
+			PointsData: map[string]any{
+				"complete": true,
+				"data":     data,
+			},
+		})
+	}
 	return scores
 }
