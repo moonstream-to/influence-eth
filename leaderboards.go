@@ -217,6 +217,51 @@ func GenerateOwnerCrewsToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 	return scores
 }
 
+type ConstructionScore struct {
+	CallerCrew   Influence_Common_Types_Entity_Entity
+	Asteroid     Influence_Common_Types_Entity_Entity
+	Building     Influence_Common_Types_Entity_Entity
+	BuildingType uint64
+}
+
+func Generate5CityBuilderR1(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
+	buildingWarehouseType := uint64(1) // TODO: Verify type of warehouse building
+	buildingExtractorType := uint64(1) // TODO: Verify type of extractor building
+
+	byCrews := make(map[uint64][]ConstructionScore)
+	for _, cpe := range conPlanEvents {
+		if cpe.BuildingType == buildingWarehouseType || cpe.BuildingType == buildingExtractorType {
+			continue
+		}
+		for _, cfe := range conFinEvents {
+			if cfe.CallerCrew.Id == cpe.CallerCrew.Id && cfe.Building.Id == cpe.Building.Id {
+				if _, ok := byCrews[cfe.CallerCrew.Id]; !ok {
+					byCrews[cfe.CallerCrew.Id] = []ConstructionScore{}
+				}
+				byCrews[cfe.CallerCrew.Id] = append(byCrews[cfe.CallerCrew.Id], ConstructionScore{
+					CallerCrew:   cpe.CallerCrew,
+					Asteroid:     cpe.Asteroid,
+					Building:     cpe.Building,
+					BuildingType: cpe.BuildingType,
+				})
+			}
+		}
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   len(data),
+			PointsData: map[string]any{
+				"complete": true,
+				"data":     data,
+			},
+		})
+	}
+	return scores
+}
+
 type ShipAssemblyFinishedScore struct {
 	Caller      string
 	FinishTime  uint64
@@ -255,17 +300,12 @@ func Generate6ExploreTheStarsR1(events []ShipAssemblyFinished) []LeaderboardScor
 	return scores
 }
 
-type ConstructionScore struct {
-	CallerCrew   Influence_Common_Types_Entity_Entity
-	Asteroid     Influence_Common_Types_Entity_Entity
-	Building     Influence_Common_Types_Entity_Entity
-	BuildingType uint64
-}
-
 func Generate7ExpandTheColonyR1(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
+	asteroidAdaliaPrimeId := uint64(1)
+
 	byCrews := make(map[uint64][]ConstructionScore)
 	for _, cpe := range conPlanEvents {
-		if cpe.Asteroid.Id == 1 {
+		if cpe.Asteroid.Id == asteroidAdaliaPrimeId {
 			continue
 		}
 		for _, cfe := range conFinEvents {

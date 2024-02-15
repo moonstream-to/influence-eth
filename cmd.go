@@ -343,10 +343,11 @@ func CreateLeaderboardCommand() *cobra.Command {
 
 	lCrewOwnersCmd := CreateLeaderboardCrewOwnersCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	lCrewsCmd := CreateLeaderboardCrewsCommand(&infile, &outfile, &accessToken, &leaderboardId)
+	l5CityBuilderR1Cmd := Create5CityBuilderR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l6ExploreTheStarsR1Cmd := CreateL6ExploreTheStarsR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l7ExpandTheColonyR1Command := Create7ExpandTheColonyR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 
-	leaderboardCmd.AddCommand(lCrewOwnersCmd, lCrewsCmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command)
+	leaderboardCmd.AddCommand(lCrewOwnersCmd, lCrewsCmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command)
 
 	return leaderboardCmd
 }
@@ -391,6 +392,32 @@ func CreateLeaderboardCrewsCommand(infile, outfile, accessToken, leaderboardId *
 	}
 
 	return leaderboardCrewsCmd
+}
+
+func Create5CityBuilderR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	l5CityBuilderR1Cmd := &cobra.Command{
+		Use:   "5-city-builder-r1",
+		Short: "Prepare leaderboard with finished ship assembly",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conFinEvents, parseEventsErr := ParseEventFromFile[ConstructionFinished](*infile, "ConstructionFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			conPlanEvents, parseEventsErr := ParseEventFromFile[ConstructionPlanned](*infile, "ConstructionPlanned")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := Generate5CityBuilderR1(conFinEvents, conPlanEvents)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return l5CityBuilderR1Cmd
 }
 
 func CreateL6ExploreTheStarsR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
