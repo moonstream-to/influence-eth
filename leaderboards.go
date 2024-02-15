@@ -21,7 +21,7 @@ var (
 
 type LeaderboardScore struct {
 	Address    string      `json:"address"`
-	Score      int         `json:"score"`
+	Score      uint64      `json:"score"`
 	PointsData interface{} `json:"points_data"`
 }
 
@@ -176,7 +176,7 @@ func GenerateCrewOwnersToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 	for i, k := range crewOwnerKeys {
 		scores = append(scores, LeaderboardScore{
 			Address: k.Str,
-			Score:   i + 1,
+			Score:   uint64(i + 1),
 			PointsData: map[string]string{
 				"address": crewOwners[k.Str],
 			},
@@ -207,13 +207,97 @@ func GenerateOwnerCrewsToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 	for owner, crews := range ownerCrews {
 		scores = append(scores, LeaderboardScore{
 			Address: owner,
-			Score:   len(crews),
+			Score:   uint64(len(crews)),
 			PointsData: map[string][]*big.Int{
 				"crews": crews,
 			},
 		})
 	}
 
+	return scores
+}
+
+type MineScore struct {
+	CallerCrew Influence_Common_Types_Entity_Entity
+	Resource   uint64
+	Yield      uint64
+}
+
+func Generate4BreakingGroundR2(events []ResourceExtractionFinished) []LeaderboardScore {
+	byCrews := make(map[uint64][]MineScore)
+	for _, e := range events {
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
+			byCrews[e.CallerCrew.Id] = []MineScore{}
+		}
+		is_added := false
+		for i, d := range byCrews[e.CallerCrew.Id] {
+			if d.Resource == e.Resource {
+				byCrews[e.CallerCrew.Id][i].Yield += e.Yield
+				is_added = true
+				break
+			}
+		}
+		if !is_added {
+			byCrews[e.CallerCrew.Id] = append(byCrews[e.CallerCrew.Id], MineScore{
+				CallerCrew: e.CallerCrew,
+				Resource:   e.Resource,
+				Yield:      e.Yield,
+			})
+		}
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		is_complete := false
+		if len(data) >= 4 {
+			is_complete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   uint64(len(data)),
+			PointsData: map[string]any{
+				"complete": is_complete,
+				"data":     data,
+			},
+		})
+	}
+	return scores
+}
+
+func Generate4BreakingGroundR1(events []ResourceExtractionFinished) []LeaderboardScore {
+	yieldRequirement := uint64(10000)
+
+	byCrews := make(map[uint64][]MineScore)
+	for _, e := range events {
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
+			byCrews[e.CallerCrew.Id] = []MineScore{}
+		}
+		byCrews[e.CallerCrew.Id] = append(byCrews[e.CallerCrew.Id], MineScore{
+			CallerCrew: e.CallerCrew,
+			Resource:   e.Resource,
+			Yield:      e.Yield,
+		})
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		var crewTotalYeld uint64
+		for _, d := range data {
+			crewTotalYeld += d.Yield
+		}
+		is_complete := false
+		if crewTotalYeld >= yieldRequirement {
+			is_complete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   crewTotalYeld,
+			PointsData: map[string]any{
+				"complete": is_complete,
+				"data":     data,
+			},
+		})
+	}
 	return scores
 }
 
@@ -252,7 +336,7 @@ func Generate5CityBuilderR1(conFinEvents []ConstructionFinished, conPlanEvents [
 	for crew, data := range byCrews {
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
-			Score:   len(data),
+			Score:   uint64(len(data)),
 			PointsData: map[string]any{
 				"complete": true,
 				"data":     data,
@@ -289,7 +373,7 @@ func Generate6ExploreTheStarsR1(events []ShipAssemblyFinished) []LeaderboardScor
 	for crew, data := range byCrews {
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
-			Score:   len(data),
+			Score:   uint64(len(data)),
 			PointsData: map[string]any{
 				"complete": true,
 				"data":     data,
@@ -327,7 +411,7 @@ func Generate7ExpandTheColonyR1(conFinEvents []ConstructionFinished, conPlanEven
 	for crew, data := range byCrews {
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
-			Score:   len(data),
+			Score:   uint64(len(data)),
 			PointsData: map[string]any{
 				"complete": true,
 				"data":     data,

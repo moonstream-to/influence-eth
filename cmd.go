@@ -341,18 +341,20 @@ func CreateLeaderboardCommand() *cobra.Command {
 	leaderboardCmd.PersistentFlags().StringVarP(&accessToken, "token", "t", "", "Moonstream user access token (could be set with MOONSTREAM_ACCESS_TOKEN environment variable)")
 	leaderboardCmd.PersistentFlags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
 
-	lCrewOwnersCmd := CreateLeaderboardCrewOwnersCommand(&infile, &outfile, &accessToken, &leaderboardId)
-	lCrewsCmd := CreateLeaderboardCrewsCommand(&infile, &outfile, &accessToken, &leaderboardId)
-	l5CityBuilderR1Cmd := Create5CityBuilderR1Command(&infile, &outfile, &accessToken, &leaderboardId)
+	lCrewOwnersCmd := CreateLCrewOwnersCommand(&infile, &outfile, &accessToken, &leaderboardId)
+	lCrewsCmd := CreateLCrewsCommand(&infile, &outfile, &accessToken, &leaderboardId)
+	l4BreakingGroundR1Cmd := CreateL4BreakingGroundR1Command(&infile, &outfile, &accessToken, &leaderboardId)
+	l4BreakingGroundR2Cmd := CreateL4BreakingGroundR2Command(&infile, &outfile, &accessToken, &leaderboardId)
+	l5CityBuilderR1Cmd := CreateL5CityBuilderR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l6ExploreTheStarsR1Cmd := CreateL6ExploreTheStarsR1Command(&infile, &outfile, &accessToken, &leaderboardId)
-	l7ExpandTheColonyR1Command := Create7ExpandTheColonyR1Command(&infile, &outfile, &accessToken, &leaderboardId)
+	l7ExpandTheColonyR1Command := CreateL7ExpandTheColonyR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 
-	leaderboardCmd.AddCommand(lCrewOwnersCmd, lCrewsCmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command)
+	leaderboardCmd.AddCommand(lCrewOwnersCmd, lCrewsCmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command)
 
 	return leaderboardCmd
 }
 
-func CreateLeaderboardCrewOwnersCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+func CreateLCrewOwnersCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
 	leaderboardCrewOwnersCmd := &cobra.Command{
 		Use:   "crew-owners",
 		Short: "Prepare leaderboard with crews",
@@ -373,7 +375,7 @@ func CreateLeaderboardCrewOwnersCommand(infile, outfile, accessToken, leaderboar
 	return leaderboardCrewOwnersCmd
 }
 
-func CreateLeaderboardCrewsCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+func CreateLCrewsCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
 	leaderboardCrewsCmd := &cobra.Command{
 		Use:   "crews",
 		Short: "Prepare leaderboard with crews",
@@ -394,10 +396,52 @@ func CreateLeaderboardCrewsCommand(infile, outfile, accessToken, leaderboardId *
 	return leaderboardCrewsCmd
 }
 
-func Create5CityBuilderR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+func CreateL4BreakingGroundR2Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	l4BreakingGroundR2Cmd := &cobra.Command{
+		Use:   "4-breaking-ground-r2",
+		Short: "Prepare leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			events, parseEventsErr := ParseEventFromFile[ResourceExtractionFinished](*infile, "ResourceExtractionFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := Generate4BreakingGroundR2(events)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return l4BreakingGroundR2Cmd
+}
+
+func CreateL4BreakingGroundR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	l4BreakingGroundR1Cmd := &cobra.Command{
+		Use:   "4-breaking-ground-r1",
+		Short: "Prepare leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			events, parseEventsErr := ParseEventFromFile[ResourceExtractionFinished](*infile, "ResourceExtractionFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := Generate4BreakingGroundR1(events)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return l4BreakingGroundR1Cmd
+}
+
+func CreateL5CityBuilderR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
 	l5CityBuilderR1Cmd := &cobra.Command{
 		Use:   "5-city-builder-r1",
-		Short: "Prepare leaderboard with finished ship assembly",
+		Short: "Prepare leaderboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			conFinEvents, parseEventsErr := ParseEventFromFile[ConstructionFinished](*infile, "ConstructionFinished")
 			if parseEventsErr != nil {
@@ -423,7 +467,7 @@ func Create5CityBuilderR1Command(infile, outfile, accessToken, leaderboardId *st
 func CreateL6ExploreTheStarsR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
 	l6ExploreTheStarsR1Cmd := &cobra.Command{
 		Use:   "6-explore-the-stars-r1",
-		Short: "Prepare leaderboard with finished ship assembly",
+		Short: "Prepare leaderboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			events, parseEventsErr := ParseEventFromFile[ShipAssemblyFinished](*infile, "ShipAssemblyFinished")
 			if parseEventsErr != nil {
@@ -441,7 +485,7 @@ func CreateL6ExploreTheStarsR1Command(infile, outfile, accessToken, leaderboardI
 	return l6ExploreTheStarsR1Cmd
 }
 
-func Create7ExpandTheColonyR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+func CreateL7ExpandTheColonyR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
 	leaderboardShipAssemblyFinishedCmd := &cobra.Command{
 		Use:   "7-expand-the-colony-r1",
 		Short: "Prepare leaderboard for Mission 7 Requirement 1",
