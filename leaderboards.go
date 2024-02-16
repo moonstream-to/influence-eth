@@ -143,6 +143,71 @@ func FindAndDeleteBigInt(original []*big.Int, delItem *big.Int) []*big.Int {
 	return original[:idx]
 }
 
+func GenerateC6TheFleet(events []ShipAssemblyFinished) []LeaderboardScore {
+	byCrews := make(map[uint64][]uint64)
+	for _, e := range events {
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
+			byCrews[e.CallerCrew.Id] = []uint64{}
+		}
+		byCrews[e.CallerCrew.Id] = append(byCrews[e.CallerCrew.Id], e.Ship.Id)
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		isRequirementComplete := false
+		isMustReachComplete := false
+		if len(data) >= 1 {
+			isRequirementComplete = true
+		}
+		if len(data) >= 200 {
+			isMustReachComplete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   uint64(len(data)),
+			PointsData: map[string]any{
+				"requirementComplete": isRequirementComplete,
+				"mustReachComplete":   isMustReachComplete,
+				"cap":                 1000,
+				"data":                data,
+			},
+		})
+	}
+	return scores
+}
+
+func GenerateC7RockBreaker(events []ResourceExtractionFinished) []LeaderboardScore {
+	byCrews := make(map[uint64]uint64)
+	for _, e := range events {
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
+			byCrews[e.CallerCrew.Id] = 0
+		}
+		byCrews[e.CallerCrew.Id] += e.Yield
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		isRequirementComplete := false
+		isMustReachComplete := false
+		if data >= 1000 {
+			isRequirementComplete = true
+		}
+		if data >= 25000000000 {
+			isMustReachComplete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data,
+			PointsData: map[string]any{
+				"requirementComplete": isRequirementComplete,
+				"mustReachComplete":   isMustReachComplete,
+				"cap":                 50000000000,
+			},
+		})
+	}
+	return scores
+}
+
 func GenerateC9ProspectingPaysOff(events []SamplingDepositFinished) []LeaderboardScore {
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
@@ -168,6 +233,7 @@ func GenerateC9ProspectingPaysOff(events []SamplingDepositFinished) []Leaderboar
 			PointsData: map[string]any{
 				"requirementComplete": isRequirementComplete,
 				"mustReachComplete":   isMustReachComplete,
+				"cap":                 1000000000,
 			},
 		})
 	}
@@ -210,6 +276,7 @@ func GenerateC10Potluck(stEventsV1 []MaterialProcessingStartedV1, finEvents []Ma
 			PointsData: map[string]any{
 				"requirementComplete": isRequirementComplete,
 				"mustReachComplete":   isMustReachComplete,
+				"cap":                 75000,
 			},
 		})
 	}

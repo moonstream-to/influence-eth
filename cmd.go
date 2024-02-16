@@ -341,6 +341,8 @@ func CreateLeaderboardCommand() *cobra.Command {
 	leaderboardCmd.PersistentFlags().StringVarP(&accessToken, "token", "t", "", "Moonstream user access token (could be set with MOONSTREAM_ACCESS_TOKEN environment variable)")
 	leaderboardCmd.PersistentFlags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
 
+	cl6TheFleetCmd := CreateCL6TheFleetCommand(&infile, &outfile, &accessToken, &leaderboardId)
+	cl7RockBreakerCmd := CreateCL7RockBreakerCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl9ProspectingPaysOffCmd := CreateCL9ProspectingPaysOffCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl10PotluckCmd := CreateCL10PotluckCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	lCrewOwnersCmd := CreateLCrewOwnersCommand(&infile, &outfile, &accessToken, &leaderboardId)
@@ -355,9 +357,51 @@ func CreateLeaderboardCommand() *cobra.Command {
 	l8SpecialDeliveryR1Cmd := CreateL8SpecialDeliveryR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l9DinnerIsServedR1Cmd := CreateL9DinnerIsServedR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 
-	leaderboardCmd.AddCommand(cl9ProspectingPaysOffCmd, cl10PotluckCmd, lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
+	leaderboardCmd.AddCommand(cl6TheFleetCmd, cl7RockBreakerCmd, cl9ProspectingPaysOffCmd, cl10PotluckCmd, lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
 
 	return leaderboardCmd
+}
+
+func CreateCL6TheFleetCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	cl6TheFleetCmd := &cobra.Command{
+		Use:   "c-6-the-fleet",
+		Short: "Prepare community leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			events, parseEventsErr := ParseEventFromFile[ShipAssemblyFinished](*infile, "ShipAssemblyFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := GenerateC6TheFleet(events)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return cl6TheFleetCmd
+}
+
+func CreateCL7RockBreakerCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	cl7RockBreakerCmd := &cobra.Command{
+		Use:   "c-7-rock-breaker",
+		Short: "Prepare community leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			events, parseEventsErr := ParseEventFromFile[ResourceExtractionFinished](*infile, "ResourceExtractionFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := GenerateC7RockBreaker(events)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return cl7RockBreakerCmd
 }
 
 func CreateCL9ProspectingPaysOffCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
