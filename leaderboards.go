@@ -132,7 +132,7 @@ func PrepareLeaderboardOutput(scores []LeaderboardScore, outfile, accessToken, l
 	}
 }
 
-func FindAndDelete(original []*big.Int, delItem *big.Int) []*big.Int {
+func FindAndDeleteBigInt(original []*big.Int, delItem *big.Int) []*big.Int {
 	idx := 0
 	for _, val := range original {
 		if val.Cmp(delItem) != 0 {
@@ -141,6 +141,79 @@ func FindAndDelete(original []*big.Int, delItem *big.Int) []*big.Int {
 		}
 	}
 	return original[:idx]
+}
+
+func GenerateC9ProspectingPaysOff(events []SamplingDepositFinished) []LeaderboardScore {
+	byCrews := make(map[uint64]uint64)
+	for _, e := range events {
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
+			byCrews[e.CallerCrew.Id] = 0
+		}
+		byCrews[e.CallerCrew.Id] += e.InitialYield
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		isRequirementComplete := false
+		isMustReachComplete := false
+		if data >= 1 {
+			isRequirementComplete = true
+		}
+		if data >= 50000 {
+			isMustReachComplete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data,
+			PointsData: map[string]any{
+				"requirementComplete": isRequirementComplete,
+				"mustReachComplete":   isMustReachComplete,
+			},
+		})
+	}
+	return scores
+}
+
+func GenerateC10Potluck(stEventsV1 []MaterialProcessingStartedV1, finEvents []MaterialProcessingFinished) []LeaderboardScore {
+	foodFilterId := uint64(2) // TODO: Verify food IDs
+
+	byCrews := make(map[uint64]uint64)
+	for _, ste := range stEventsV1 {
+		if _, ok := byCrews[ste.CallerCrew.Id]; !ok {
+			byCrews[ste.CallerCrew.Id] = 0
+		}
+		for _, fine := range finEvents {
+			if ste.CallerCrew.Id == fine.CallerCrew.Id && ste.Processor.Id == fine.Processor.Id && ste.ProcessorSlot == fine.ProcessorSlot {
+				for _, p := range ste.Outputs.Snapshot {
+					if p.Product == foodFilterId {
+						byCrews[ste.CallerCrew.Id] += p.Amount
+					}
+				}
+			}
+		}
+
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		isRequirementComplete := false
+		isMustReachComplete := false
+		if data >= 5000 {
+			isRequirementComplete = true
+		}
+		if data >= 20000 {
+			isMustReachComplete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data,
+			PointsData: map[string]any{
+				"requirementComplete": isRequirementComplete,
+				"mustReachComplete":   isMustReachComplete,
+			},
+		})
+	}
+	return scores
 }
 
 func GenerateCrewOwnersToScores(events []Influence_Contracts_Crew_Crew_Transfer) []LeaderboardScore {
@@ -193,12 +266,12 @@ func GenerateOwnerCrewsToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 		if vals, ok := ownerCrews[event.To]; ok {
 			ownerCrews[event.To] = append(vals, event.TokenId)
 			if event.From != "0x0" {
-				ownerCrews[event.From] = FindAndDelete(ownerCrews[event.From], event.TokenId)
+				ownerCrews[event.From] = FindAndDeleteBigInt(ownerCrews[event.From], event.TokenId)
 			}
 		} else {
 			ownerCrews[event.To] = []*big.Int{event.TokenId}
 			if event.From != "0x0" {
-				ownerCrews[event.From] = FindAndDelete(ownerCrews[event.From], event.TokenId)
+				ownerCrews[event.From] = FindAndDeleteBigInt(ownerCrews[event.From], event.TokenId)
 			}
 		}
 	}
@@ -379,8 +452,6 @@ func Generate4BreakingGroundR2(events []ResourceExtractionFinished) []Leaderboar
 }
 
 func Generate4BreakingGroundR1(events []ResourceExtractionFinished) []LeaderboardScore {
-	yieldRequirement := uint64(10000)
-
 	byCrews := make(map[uint64][]MineScore)
 	for _, e := range events {
 		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
@@ -400,7 +471,7 @@ func Generate4BreakingGroundR1(events []ResourceExtractionFinished) []Leaderboar
 			crewTotalYeld += d.Yield
 		}
 		is_complete := false
-		if crewTotalYeld >= yieldRequirement {
+		if crewTotalYeld >= uint64(10000) {
 			is_complete = true
 		}
 		scores = append(scores, LeaderboardScore{

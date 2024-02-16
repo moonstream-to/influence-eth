@@ -341,6 +341,8 @@ func CreateLeaderboardCommand() *cobra.Command {
 	leaderboardCmd.PersistentFlags().StringVarP(&accessToken, "token", "t", "", "Moonstream user access token (could be set with MOONSTREAM_ACCESS_TOKEN environment variable)")
 	leaderboardCmd.PersistentFlags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
 
+	cl9ProspectingPaysOffCmd := CreateCL9ProspectingPaysOffCommand(&infile, &outfile, &accessToken, &leaderboardId)
+	cl10PotluckCmd := CreateCL10PotluckCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	lCrewOwnersCmd := CreateLCrewOwnersCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	lCrewsCmd := CreateLCrewsCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	l3MarketMakerR1Cmd := CreateL3MarketMakerR1Command(&infile, &outfile, &accessToken, &leaderboardId)
@@ -353,9 +355,55 @@ func CreateLeaderboardCommand() *cobra.Command {
 	l8SpecialDeliveryR1Cmd := CreateL8SpecialDeliveryR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l9DinnerIsServedR1Cmd := CreateL9DinnerIsServedR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 
-	leaderboardCmd.AddCommand(lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
+	leaderboardCmd.AddCommand(cl9ProspectingPaysOffCmd, cl10PotluckCmd, lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
 
 	return leaderboardCmd
+}
+
+func CreateCL9ProspectingPaysOffCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	cl9ProspectingPaysOffCmd := &cobra.Command{
+		Use:   "c-9-prospecting-pays-off",
+		Short: "Prepare community leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			events, parseEventsErr := ParseEventFromFile[SamplingDepositFinished](*infile, "SamplingDepositFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := GenerateC9ProspectingPaysOff(events)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return cl9ProspectingPaysOffCmd
+}
+
+func CreateCL10PotluckCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	cl10PotluckCmd := &cobra.Command{
+		Use:   "c-10-potluck",
+		Short: "Prepare community leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			stEventsV1, parseEventsErr := ParseEventFromFile[MaterialProcessingStartedV1](*infile, "MaterialProcessingStartedV1")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+			finEvents, parseEventsErr := ParseEventFromFile[MaterialProcessingFinished](*infile, "MaterialProcessingFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := GenerateC10Potluck(stEventsV1, finEvents)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return cl10PotluckCmd
 }
 
 func CreateLCrewOwnersCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
