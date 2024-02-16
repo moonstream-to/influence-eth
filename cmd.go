@@ -351,8 +351,9 @@ func CreateLeaderboardCommand() *cobra.Command {
 	l6ExploreTheStarsR1Cmd := CreateL6ExploreTheStarsR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l7ExpandTheColonyR1Command := CreateL7ExpandTheColonyR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l8SpecialDeliveryR1Cmd := CreateL8SpecialDeliveryR1Command(&infile, &outfile, &accessToken, &leaderboardId)
+	l9DinnerIsServedR1Cmd := CreateL9DinnerIsServedR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 
-	leaderboardCmd.AddCommand(lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd)
+	leaderboardCmd.AddCommand(lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
 
 	return leaderboardCmd
 }
@@ -609,4 +610,30 @@ func CreateL8SpecialDeliveryR1Command(infile, outfile, accessToken, leaderboardI
 	}
 
 	return l8SpecialDeliveryR1Cmd
+}
+
+func CreateL9DinnerIsServedR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	l9DinnerIsServedR1Cmd := &cobra.Command{
+		Use:   "9-dinner-is-served-r1",
+		Short: "Prepare leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			events, parseEventsErr := ParseEventFromFile[FoodSupplied](*infile, "FoodSupplied")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			eventsV1, parseEventsErr := ParseEventFromFile[FoodSuppliedV1](*infile, "FoodSuppliedV1")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := Generate9DinnerIsServedR1(events, eventsV1)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return l9DinnerIsServedR1Cmd
 }

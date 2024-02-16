@@ -581,3 +581,38 @@ func Generate8SpecialDeliveryR1(trEvents []TransitFinished, delEvents []Delivery
 	}
 	return scores
 }
+
+func Generate9DinnerIsServedR1(events []FoodSupplied, eventsV1 []FoodSuppliedV1) []LeaderboardScore {
+	byCrews := make(map[uint64]uint64)
+	for _, e := range events {
+		_, ok := byCrews[e.CallerCrew.Id]
+		if !ok {
+			byCrews[e.CallerCrew.Id] = 0
+		}
+		byCrews[e.CallerCrew.Id] += e.Food
+	}
+
+	for _, e := range eventsV1 {
+		_, ok := byCrews[e.CallerCrew.Id]
+		if !ok {
+			byCrews[e.CallerCrew.Id] = 0
+		}
+		byCrews[e.CallerCrew.Id] += e.Food
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		is_complete := false
+		if data >= 10000 {
+			is_complete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data,
+			PointsData: map[string]any{
+				"complete": is_complete,
+			},
+		})
+	}
+	return scores
+}
