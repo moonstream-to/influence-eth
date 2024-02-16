@@ -178,7 +178,7 @@ func GenerateCrewOwnersToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 			Address: k.Str,
 			Score:   uint64(i + 1),
 			PointsData: map[string]string{
-				"address": crewOwners[k.Str],
+				"data": crewOwners[k.Str],
 			},
 		})
 	}
@@ -205,15 +205,28 @@ func GenerateOwnerCrewsToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 
 	scores := []LeaderboardScore{}
 	for owner, crews := range ownerCrews {
+		is_complete := false
+		if len(crews) >= 5 {
+			is_complete = true
+		}
 		scores = append(scores, LeaderboardScore{
 			Address: owner,
 			Score:   uint64(len(crews)),
-			PointsData: map[string][]*big.Int{
-				"crews": crews,
+			PointsData: map[string]any{
+				"complete": is_complete,
+				"data":     crews,
 			},
 		})
 	}
 
+	return scores
+}
+
+func Generate1TeamAssembleR2(events []Influence_Contracts_Crew_Crew_Transfer) []LeaderboardScore {
+
+	// TODO: Where to fetch crewmate types
+
+	scores := []LeaderboardScore{}
 	return scores
 }
 
@@ -516,6 +529,53 @@ func Generate7ExpandTheColonyR1(conFinEvents []ConstructionFinished, conPlanEven
 			PointsData: map[string]any{
 				"complete": true,
 				"data":     data,
+			},
+		})
+	}
+	return scores
+}
+
+type DeliveryScore struct {
+	Origin          Influence_Common_Types_Entity_Entity
+	Destination     Influence_Common_Types_Entity_Entity
+	Products        Core_Array_Span_influence_Common_Types_InventoryItem_InventoryItem
+	CallerCrew      Influence_Common_Types_Entity_Entity
+	cargoHoldAmount uint64
+}
+
+func Generate8SpecialDeliveryR1(trEvents []TransitFinished, delEvents []DeliverySent) []LeaderboardScore {
+	byCrews := make(map[uint64][]DeliveryScore)
+	for _, tre := range trEvents {
+		if _, ok := byCrews[tre.CallerCrew.Id]; !ok {
+			byCrews[tre.CallerCrew.Id] = []DeliveryScore{}
+		}
+		delivery := DeliveryScore{
+			Origin:      tre.Origin,
+			Destination: tre.Destination,
+			CallerCrew:  tre.CallerCrew,
+		}
+		for _, dele := range delEvents {
+			if dele.Origin.Id == tre.Origin.Id && dele.Dest.Id == tre.Destination.Id {
+				delivery.Products = dele.Products
+				for _, p := range dele.Products.Snapshot {
+					delivery.cargoHoldAmount += p.Amount
+				}
+			}
+		}
+
+		byCrews[tre.CallerCrew.Id] = append(byCrews[tre.CallerCrew.Id], delivery)
+	}
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		var totalCargoHoldAmount uint64
+		for _, d := range data {
+			totalCargoHoldAmount += d.cargoHoldAmount
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   totalCargoHoldAmount,
+			PointsData: map[string]any{
+				"data": data,
 			},
 		})
 	}
