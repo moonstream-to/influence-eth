@@ -143,6 +143,69 @@ func FindAndDeleteBigInt(original []*big.Int, delItem *big.Int) []*big.Int {
 	return original[:idx]
 }
 
+type StationedScore struct {
+	Building     Influence_Common_Types_Entity_Entity
+	BuildingType uint64
+	Asteroid     Influence_Common_Types_Entity_Entity
+	Station      Influence_Common_Types_Entity_Entity
+}
+
+func GenerateC1BaseCampToScores(staEvents []CrewStationed, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
+	stationType := uint64(1)           // TODO: Get building type for Station
+	asteroidAdaliaPrimeId := uint64(1) // TODO: Verify AP index
+
+	byCrews := make(map[uint64][]StationedScore)
+	for _, se := range staEvents {
+		var stationedScore *StationedScore
+		for _, cpe := range conPlanEvents {
+			if cpe.Asteroid.Id == asteroidAdaliaPrimeId {
+				continue
+			}
+			if cpe.Building.Id == se.Station.Id {
+				if cpe.BuildingType != stationType {
+					continue
+				}
+				stationedScore = &StationedScore{
+					Building:     cpe.Building,
+					BuildingType: cpe.BuildingType,
+					Station:      se.Station,
+					Asteroid:     cpe.Asteroid,
+				}
+			}
+		}
+		if stationedScore == nil {
+			continue
+		}
+		if _, ok := byCrews[se.CallerCrew.Id]; !ok {
+			byCrews[se.CallerCrew.Id] = []StationedScore{}
+		}
+		byCrews[se.CallerCrew.Id] = append(byCrews[se.CallerCrew.Id], *stationedScore)
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		isRequirementComplete := false
+		isMustReachComplete := false
+		if len(data) >= 1 {
+			isRequirementComplete = true
+		}
+		if len(data) >= 10 {
+			isMustReachComplete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   uint64(len(data)),
+			PointsData: map[string]any{
+				"complete":          isRequirementComplete,
+				"mustReachComplete": isMustReachComplete,
+				"cap":               1000,
+				"data":              data,
+			},
+		})
+	}
+	return scores
+}
+
 type ConstructionScore struct {
 	CallerCrew   Influence_Common_Types_Entity_Entity
 	Asteroid     Influence_Common_Types_Entity_Entity
@@ -699,7 +762,7 @@ func Generate6ExploreTheStarsR1(events []ShipAssemblyFinished) []LeaderboardScor
 }
 
 func Generate7ExpandTheColonyR1(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
-	asteroidAdaliaPrimeId := uint64(1)
+	asteroidAdaliaPrimeId := uint64(1) // TODO: Verify AP index
 
 	byCrews := make(map[uint64][]ConstructionScore)
 	for _, cpe := range conPlanEvents {

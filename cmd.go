@@ -341,29 +341,61 @@ func CreateLeaderboardCommand() *cobra.Command {
 	leaderboardCmd.PersistentFlags().StringVarP(&accessToken, "token", "t", "", "Moonstream user access token (could be set with MOONSTREAM_ACCESS_TOKEN environment variable)")
 	leaderboardCmd.PersistentFlags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
 
+	cl1BaseCampCmd := CreateCL1BaseCampCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl2RomulusRemusAndTheRestCmd := CreateCL2RomulusRemusAndTheRestCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl3LearnByDoingCmd := CreateCL3LearnByDoingCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl4FourPillarsCmd := CreateCL4FourPillarsCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl5TogetherWeCanRiseCmd := CreateCL5TogetherWeCanRiseCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl6TheFleetCmd := CreateCL6TheFleetCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl7RockBreakerCmd := CreateCL7RockBreakerCommand(&infile, &outfile, &accessToken, &leaderboardId)
+	// c8
 	cl9ProspectingPaysOffCmd := CreateCL9ProspectingPaysOffCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl10PotluckCmd := CreateCL10PotluckCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	lCrewOwnersCmd := CreateLCrewOwnersCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	lCrewsCmd := CreateLCrewsCommand(&infile, &outfile, &accessToken, &leaderboardId)
+	//l1r1
+	//l1r2
+	//l2r1
+	//l2r2
 	l3MarketMakerR1Cmd := CreateL3MarketMakerR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l3MarketMakerR2Cmd := CreateL3MarketMakerR2Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l4BreakingGroundR1Cmd := CreateL4BreakingGroundR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l4BreakingGroundR2Cmd := CreateL4BreakingGroundR2Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l5CityBuilderR1Cmd := CreateL5CityBuilderR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l6ExploreTheStarsR1Cmd := CreateL6ExploreTheStarsR1Command(&infile, &outfile, &accessToken, &leaderboardId)
+	//l6r2
 	l7ExpandTheColonyR1Command := CreateL7ExpandTheColonyR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l8SpecialDeliveryR1Cmd := CreateL8SpecialDeliveryR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l9DinnerIsServedR1Cmd := CreateL9DinnerIsServedR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 
-	leaderboardCmd.AddCommand(cl2RomulusRemusAndTheRestCmd, cl3LearnByDoingCmd, cl4FourPillarsCmd, cl5TogetherWeCanRiseCmd, cl6TheFleetCmd, cl7RockBreakerCmd, cl9ProspectingPaysOffCmd, cl10PotluckCmd, lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
+	leaderboardCmd.AddCommand(cl1BaseCampCmd, cl2RomulusRemusAndTheRestCmd, cl3LearnByDoingCmd, cl4FourPillarsCmd, cl5TogetherWeCanRiseCmd, cl6TheFleetCmd, cl7RockBreakerCmd, cl9ProspectingPaysOffCmd, cl10PotluckCmd, lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
 
 	return leaderboardCmd
+}
+
+func CreateCL1BaseCampCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	cl1BaseCampCmd := &cobra.Command{
+		Use:   "c-1-base-camp",
+		Short: "Prepare community leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			staEvents, parseEventsErr := ParseEventFromFile[CrewStationed](*infile, "CrewStationed")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+			conPlanEvents, parseEventsErr := ParseEventFromFile[ConstructionPlanned](*infile, "ConstructionPlanned")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := GenerateC1BaseCampToScores(staEvents, conPlanEvents)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return cl1BaseCampCmd
 }
 
 func CreateCL2RomulusRemusAndTheRestCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
@@ -380,7 +412,7 @@ func CreateCL2RomulusRemusAndTheRestCommand(infile, outfile, accessToken, leader
 				return parseEventsErr
 			}
 
-			asteroids := map[uint64]bool{ // TODO: verify AP indexe
+			asteroids := map[uint64]bool{ // TODO: verify AP index
 				1: true,
 			}
 			scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, nil, asteroids, 25000, 75000)
