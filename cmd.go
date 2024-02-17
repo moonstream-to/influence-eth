@@ -348,7 +348,7 @@ func CreateLeaderboardCommand() *cobra.Command {
 	cl5TogetherWeCanRiseCmd := CreateCL5TogetherWeCanRiseCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl6TheFleetCmd := CreateCL6TheFleetCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl7RockBreakerCmd := CreateCL7RockBreakerCommand(&infile, &outfile, &accessToken, &leaderboardId)
-	// c8
+	cl8GoodNewsEveryoneCmd := CreateCL8GoodNewsEveryoneCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl9ProspectingPaysOffCmd := CreateCL9ProspectingPaysOffCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	cl10PotluckCmd := CreateCL10PotluckCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	lCrewOwnersCmd := CreateLCrewOwnersCommand(&infile, &outfile, &accessToken, &leaderboardId)
@@ -368,7 +368,7 @@ func CreateLeaderboardCommand() *cobra.Command {
 	l8SpecialDeliveryR1Cmd := CreateL8SpecialDeliveryR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l9DinnerIsServedR1Cmd := CreateL9DinnerIsServedR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 
-	leaderboardCmd.AddCommand(cl1BaseCampCmd, cl2RomulusRemusAndTheRestCmd, cl3LearnByDoingCmd, cl4FourPillarsCmd, cl5TogetherWeCanRiseCmd, cl6TheFleetCmd, cl7RockBreakerCmd, cl9ProspectingPaysOffCmd, cl10PotluckCmd, lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
+	leaderboardCmd.AddCommand(cl1BaseCampCmd, cl2RomulusRemusAndTheRestCmd, cl3LearnByDoingCmd, cl4FourPillarsCmd, cl5TogetherWeCanRiseCmd, cl6TheFleetCmd, cl7RockBreakerCmd, cl8GoodNewsEveryoneCmd, cl9ProspectingPaysOffCmd, cl10PotluckCmd, lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
 
 	return leaderboardCmd
 }
@@ -556,6 +556,31 @@ func CreateCL7RockBreakerCommand(infile, outfile, accessToken, leaderboardId *st
 	}
 
 	return cl7RockBreakerCmd
+}
+
+func CreateCL8GoodNewsEveryoneCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	cl8GoodNewsEveryoneCmd := &cobra.Command{
+		Use:   "c-8-good-news-everyone",
+		Short: "Prepare community leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			trFinEvents, parseEventsErr := ParseEventFromFile[TransitFinished](*infile, "TransitFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+			deReEvents, parseEventsErr := ParseEventFromFile[DeliveryReceived](*infile, "DeliveryReceived")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := GenerateC8GoodNewsEveryoneToScores(trFinEvents, deReEvents)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return cl8GoodNewsEveryoneCmd
 }
 
 func CreateCL9ProspectingPaysOffCommand(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {

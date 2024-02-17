@@ -213,9 +213,13 @@ type ConstructionScore struct {
 	BuildingType uint64
 }
 
+type ConstructionsScore struct {
+	Constructions []ConstructionScore
+	BuildingTypes map[uint64]bool
+}
+
 func GenerateCommunityConstructionsToScores(conPlanEvents []ConstructionPlanned, conFinEvents []ConstructionFinished, buildingTypes, asteroids map[uint64]bool, mustReach, cap int) []LeaderboardScore {
-	byCrews := make(map[uint64][]ConstructionScore)
-	buildingTypesSet := make(map[uint64]bool) // To compare all building types have built
+	byCrews := make(map[uint64]ConstructionsScore)
 	for _, cpe := range conPlanEvents {
 		if buildingTypes != nil {
 			if _, ok := buildingTypes[cpe.BuildingType]; !ok {
@@ -229,34 +233,53 @@ func GenerateCommunityConstructionsToScores(conPlanEvents []ConstructionPlanned,
 				continue
 			}
 		}
+	CONSTRUCTION_FINISHED_LOOP:
 		for _, cfe := range conFinEvents {
 			if cfe.CallerCrew.Id == cpe.CallerCrew.Id && cfe.Building.Id == cpe.Building.Id {
 				// Match ConstructionPlanned and ConstructionFinished events
-				byCrews[cfe.CallerCrew.Id] = []ConstructionScore{}
+				var constructionsScores ConstructionsScore
+				if cs, ok := byCrews[cfe.CallerCrew.Id]; ok {
+					constructionsScores = cs
+				} else {
+					constructionsScores = ConstructionsScore{
+						BuildingTypes: make(map[uint64]bool),
+					}
+				}
+
+				constructionsScores.Constructions = append(constructionsScores.Constructions, ConstructionScore{
+					CallerCrew:   cpe.CallerCrew,
+					Asteroid:     cpe.Asteroid,
+					Building:     cpe.Building,
+					BuildingType: cpe.BuildingType,
+				})
+				constructionsScores.BuildingTypes[cpe.BuildingType] = true
+				byCrews[cfe.CallerCrew.Id] = constructionsScores
+
+				break CONSTRUCTION_FINISHED_LOOP
 			}
-			byCrews[cfe.CallerCrew.Id] = append(byCrews[cfe.CallerCrew.Id], ConstructionScore{
-				CallerCrew:   cpe.CallerCrew,
-				Asteroid:     cpe.Asteroid,
-				Building:     cpe.Building,
-				BuildingType: cpe.BuildingType,
-			})
-			buildingTypesSet[cpe.BuildingType] = true
 		}
 	}
 
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
-		pointsData := map[string]any{
-			"complete":           false,
-			"buildingTypesBuilt": len(buildingTypesSet),
-			"data":               data,
+		var buildingTypes []uint64
+		for buildingType, include := range data.BuildingTypes {
+			if include {
+				buildingTypes = append(buildingTypes, buildingType)
+			}
 		}
-		if len(data) >= 1 {
+
+		pointsData := map[string]any{
+			"complete":      false,
+			"buildingTypes": buildingTypes,
+			"data":          data,
+		}
+		if len(data.Constructions) >= 1 {
 			pointsData["complete"] = true
 		}
 		if mustReach != 0 {
 			_, isComplete := pointsData["complete"]
-			if isComplete && len(data) >= mustReach {
+			if isComplete && len(data.Constructions) >= mustReach {
 				pointsData["mustReachComplete"] = true
 			} else {
 				pointsData["mustReachComplete"] = false
@@ -268,7 +291,7 @@ func GenerateCommunityConstructionsToScores(conPlanEvents []ConstructionPlanned,
 		}
 		scores = append(scores, LeaderboardScore{
 			Address:    fmt.Sprintf("%d", crew),
-			Score:      uint64(len(data)),
+			Score:      uint64(len(data.Constructions)),
 			PointsData: pointsData,
 		})
 	}
@@ -334,6 +357,84 @@ func GenerateC7RockBreaker(events []ResourceExtractionFinished) []LeaderboardSco
 				"complete":          isRequirementComplete,
 				"mustReachComplete": isMustReachComplete,
 				"cap":               50000000000,
+			},
+		})
+	}
+	return scores
+}
+
+type TransitScores struct {
+	TotalAmount          uint64
+	MaterialTypesInCargo map[uint64]bool
+}
+
+func GenerateC8GoodNewsEveryoneToScores(trFinEvents []TransitFinished, deReEvents []DeliveryReceived) []LeaderboardScore {
+	asteroidAdaliaPrimeId := uint64(1) // TODO: Verify AP index
+	cTypeMaterials := map[uint64]bool{ // TODO: Verify C-Type materials product IDs
+		2: true,
+	}
+
+	byCrews := make(map[uint64]TransitScores)
+	for _, trfe := range trFinEvents {
+		if trfe.Destination.Id != asteroidAdaliaPrimeId {
+			continue
+		}
+	DELIVERY_RECEIVED_LOOP:
+		for _, dre := range deReEvents {
+			if dre.Dest.Id != asteroidAdaliaPrimeId || dre.Dest.Id != trfe.Destination.Id || dre.Origin.Id != trfe.Origin.Id {
+				continue
+			}
+			if dre.BlockNumber < trfe.BlockNumber {
+				// DeliveryReceived should be equal or later then TransitFinished event fired
+				continue
+			}
+			var transitScores TransitScores
+			if ts, ok := byCrews[trfe.CallerCrew.Id]; ok {
+				transitScores = ts
+			} else {
+				transitScores = TransitScores{
+					MaterialTypesInCargo: make(map[uint64]bool),
+				}
+			}
+			for _, product := range dre.Products.Snapshot {
+				if _, ok := cTypeMaterials[product.Product]; ok {
+					// Filter out C-Type materials
+					continue
+				}
+				transitScores.TotalAmount += product.Amount
+				transitScores.MaterialTypesInCargo[product.Product] = true
+			}
+			byCrews[trfe.CallerCrew.Id] = transitScores
+
+			break DELIVERY_RECEIVED_LOOP
+		}
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		var materialTypes []uint64
+		for materialType, include := range data.MaterialTypesInCargo {
+			if include {
+				materialTypes = append(materialTypes, materialType)
+			}
+		}
+
+		isRequirementComplete := false
+		isMustReachComplete := false
+		if data.TotalAmount >= 500000 {
+			isRequirementComplete = true
+		}
+		if data.TotalAmount >= 100000000 {
+			isMustReachComplete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data.TotalAmount,
+			PointsData: map[string]any{
+				"complete":          isRequirementComplete,
+				"mustReachComplete": isMustReachComplete,
+				"cap":               1000000000,
+				"materialTypes":     materialTypes,
 			},
 		})
 	}
