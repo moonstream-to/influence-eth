@@ -143,6 +143,75 @@ func FindAndDeleteBigInt(original []*big.Int, delItem *big.Int) []*big.Int {
 	return original[:idx]
 }
 
+type ConstructionScore struct {
+	CallerCrew   Influence_Common_Types_Entity_Entity
+	Asteroid     Influence_Common_Types_Entity_Entity
+	Building     Influence_Common_Types_Entity_Entity
+	BuildingType uint64
+}
+
+func GenerateCommunityConstructionsToScores(conPlanEvents []ConstructionPlanned, conFinEvents []ConstructionFinished, buildingTypes, asteroids map[uint64]bool, mustReach, cap int) []LeaderboardScore {
+	byCrews := make(map[uint64][]ConstructionScore)
+	buildingTypesSet := make(map[uint64]bool) // To compare all building types have built
+	for _, cpe := range conPlanEvents {
+		if buildingTypes != nil {
+			if _, ok := buildingTypes[cpe.BuildingType]; !ok {
+				// Pass by building type
+				continue
+			}
+		}
+		if asteroids != nil {
+			if _, ok := asteroids[cpe.Asteroid.Id]; !ok {
+				// Pass by asteroid ID
+				continue
+			}
+		}
+		for _, cfe := range conFinEvents {
+			if cfe.CallerCrew.Id == cpe.CallerCrew.Id && cfe.Building.Id == cpe.Building.Id {
+				// Match ConstructionPlanned and ConstructionFinished events
+				byCrews[cfe.CallerCrew.Id] = []ConstructionScore{}
+			}
+			byCrews[cfe.CallerCrew.Id] = append(byCrews[cfe.CallerCrew.Id], ConstructionScore{
+				CallerCrew:   cpe.CallerCrew,
+				Asteroid:     cpe.Asteroid,
+				Building:     cpe.Building,
+				BuildingType: cpe.BuildingType,
+			})
+			buildingTypesSet[cpe.BuildingType] = true
+		}
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		pointsData := map[string]any{
+			"complete":           false,
+			"buildingTypesBuilt": len(buildingTypesSet),
+			"data":               data,
+		}
+		if len(data) >= 1 {
+			pointsData["complete"] = true
+		}
+		if mustReach != 0 {
+			_, isComplete := pointsData["complete"]
+			if isComplete && len(data) >= mustReach {
+				pointsData["mustReachComplete"] = true
+			} else {
+				pointsData["mustReachComplete"] = false
+			}
+		}
+
+		if cap != 0 {
+			pointsData["cap"] = cap
+		}
+		scores = append(scores, LeaderboardScore{
+			Address:    fmt.Sprintf("%d", crew),
+			Score:      uint64(len(data)),
+			PointsData: pointsData,
+		})
+	}
+	return scores
+}
+
 func GenerateC6TheFleet(events []ShipAssemblyFinished) []LeaderboardScore {
 	byCrews := make(map[uint64][]uint64)
 	for _, e := range events {
@@ -166,10 +235,10 @@ func GenerateC6TheFleet(events []ShipAssemblyFinished) []LeaderboardScore {
 			Address: fmt.Sprintf("%d", crew),
 			Score:   uint64(len(data)),
 			PointsData: map[string]any{
-				"requirementComplete": isRequirementComplete,
-				"mustReachComplete":   isMustReachComplete,
-				"cap":                 1000,
-				"data":                data,
+				"complete":          isRequirementComplete,
+				"mustReachComplete": isMustReachComplete,
+				"cap":               1000,
+				"data":              data,
 			},
 		})
 	}
@@ -199,9 +268,9 @@ func GenerateC7RockBreaker(events []ResourceExtractionFinished) []LeaderboardSco
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"requirementComplete": isRequirementComplete,
-				"mustReachComplete":   isMustReachComplete,
-				"cap":                 50000000000,
+				"complete":          isRequirementComplete,
+				"mustReachComplete": isMustReachComplete,
+				"cap":               50000000000,
 			},
 		})
 	}
@@ -231,9 +300,9 @@ func GenerateC9ProspectingPaysOff(events []SamplingDepositFinished) []Leaderboar
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"requirementComplete": isRequirementComplete,
-				"mustReachComplete":   isMustReachComplete,
-				"cap":                 1000000000,
+				"cmplete":           isRequirementComplete,
+				"mustReachComplete": isMustReachComplete,
+				"cap":               1000000000,
 			},
 		})
 	}
@@ -274,9 +343,9 @@ func GenerateC10Potluck(stEventsV1 []MaterialProcessingStartedV1, finEvents []Ma
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"requirementComplete": isRequirementComplete,
-				"mustReachComplete":   isMustReachComplete,
-				"cap":                 75000,
+				"complete":          isRequirementComplete,
+				"mustReachComplete": isMustReachComplete,
+				"cap":               75000,
 			},
 		})
 	}
@@ -551,13 +620,6 @@ func Generate4BreakingGroundR1(events []ResourceExtractionFinished) []Leaderboar
 		})
 	}
 	return scores
-}
-
-type ConstructionScore struct {
-	CallerCrew   Influence_Common_Types_Entity_Entity
-	Asteroid     Influence_Common_Types_Entity_Entity
-	Building     Influence_Common_Types_Entity_Entity
-	BuildingType uint64
 }
 
 func Generate5CityBuilderR1(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
