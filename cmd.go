@@ -353,8 +353,8 @@ func CreateLeaderboardCommand() *cobra.Command {
 	cl10PotluckCmd := CreateCL10PotluckCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	lCrewOwnersCmd := CreateLCrewOwnersCommand(&infile, &outfile, &accessToken, &leaderboardId)
 	lCrewsCmd := CreateLCrewsCommand(&infile, &outfile, &accessToken, &leaderboardId)
-	//l1r1
-	//l1r2
+	l1NewRecruitsR1Cmd := CreateL1NewRecruitsR1Command(&infile, &outfile, &accessToken, &leaderboardId)
+	l1NewRecruitsR2Cmd := CreateL1NewRecruitsR2Command(&infile, &outfile, &accessToken, &leaderboardId)
 	//l2r1
 	//l2r2
 	l3MarketMakerR1Cmd := CreateL3MarketMakerR1Command(&infile, &outfile, &accessToken, &leaderboardId)
@@ -363,12 +363,12 @@ func CreateLeaderboardCommand() *cobra.Command {
 	l4BreakingGroundR2Cmd := CreateL4BreakingGroundR2Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l5CityBuilderR1Cmd := CreateL5CityBuilderR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l6ExploreTheStarsR1Cmd := CreateL6ExploreTheStarsR1Command(&infile, &outfile, &accessToken, &leaderboardId)
-	//l6r2
+	l6ExploreTheStarsR2Cmd := CreateL6ExploreTheStarsR2Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l7ExpandTheColonyR1Command := CreateL7ExpandTheColonyR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l8SpecialDeliveryR1Cmd := CreateL8SpecialDeliveryR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 	l9DinnerIsServedR1Cmd := CreateL9DinnerIsServedR1Command(&infile, &outfile, &accessToken, &leaderboardId)
 
-	leaderboardCmd.AddCommand(cl1BaseCampCmd, cl2RomulusRemusAndTheRestCmd, cl3LearnByDoingCmd, cl4FourPillarsCmd, cl5TogetherWeCanRiseCmd, cl6TheFleetCmd, cl7RockBreakerCmd, cl8GoodNewsEveryoneCmd, cl9ProspectingPaysOffCmd, cl10PotluckCmd, lCrewOwnersCmd, lCrewsCmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
+	leaderboardCmd.AddCommand(cl1BaseCampCmd, cl2RomulusRemusAndTheRestCmd, cl3LearnByDoingCmd, cl4FourPillarsCmd, cl5TogetherWeCanRiseCmd, cl6TheFleetCmd, cl7RockBreakerCmd, cl8GoodNewsEveryoneCmd, cl9ProspectingPaysOffCmd, cl10PotluckCmd, lCrewOwnersCmd, lCrewsCmd, lCrewsCmd, l1NewRecruitsR1Cmd, l1NewRecruitsR2Cmd, l3MarketMakerR1Cmd, l3MarketMakerR2Cmd, l4BreakingGroundR1Cmd, l4BreakingGroundR2Cmd, l5CityBuilderR1Cmd, l6ExploreTheStarsR1Cmd, l6ExploreTheStarsR2Cmd, l7ExpandTheColonyR1Command, l8SpecialDeliveryR1Cmd, l9DinnerIsServedR1Cmd)
 
 	return leaderboardCmd
 }
@@ -671,17 +671,46 @@ func CreateLCrewsCommand(infile, outfile, accessToken, leaderboardId *string) *c
 	return leaderboardCrewsCmd
 }
 
-func CreateL1TeamAssembleR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
-	l1TeamAssembleR2Cmd := &cobra.Command{
-		Use:   "1-team-assemble-r2",
+func CreateL1NewRecruitsR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	l1NewRecruitsR1Cmd := &cobra.Command{
+		Use:   "1-new-recruits-r1",
 		Short: "Prepare leaderboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			events, parseEventsErr := ParseEventFromFile[Influence_Contracts_Crew_Crew_Transfer](*infile, "influence::contracts::crew::Crew::Transfer")
+			recEvents, parseEventsErr := ParseEventFromFile[CrewmateRecruited](*infile, "CrewmateRecruited")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+			recV1Events, parseEventsErr := ParseEventFromFile[CrewmateRecruitedV1](*infile, "CrewmateRecruitedV1")
 			if parseEventsErr != nil {
 				return parseEventsErr
 			}
 
-			scores := Generate1TeamAssembleR2(events)
+			scores := Generate1NewRecruitsR1(recEvents, recV1Events)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return l1NewRecruitsR1Cmd
+}
+
+func CreateL1NewRecruitsR2Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	l1TeamAssembleR2Cmd := &cobra.Command{
+		Use:   "1-new-recruits-r2",
+		Short: "Prepare leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			recEvents, parseEventsErr := ParseEventFromFile[CrewmateRecruited](*infile, "CrewmateRecruited")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+			recV1Events, parseEventsErr := ParseEventFromFile[CrewmateRecruitedV1](*infile, "CrewmateRecruitedV1")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := Generate1NewRecruitsR2(recEvents, recV1Events)
 
 			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 
@@ -742,27 +771,6 @@ func CreateL3MarketMakerR2Command(infile, outfile, accessToken, leaderboardId *s
 	return l3MarketMakerR2Cmd
 }
 
-func CreateL4BreakingGroundR2Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
-	l4BreakingGroundR2Cmd := &cobra.Command{
-		Use:   "4-breaking-ground-r2",
-		Short: "Prepare leaderboard",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			events, parseEventsErr := ParseEventFromFile[ResourceExtractionFinished](*infile, "ResourceExtractionFinished")
-			if parseEventsErr != nil {
-				return parseEventsErr
-			}
-
-			scores := Generate4BreakingGroundR2(events)
-
-			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
-
-			return nil
-		},
-	}
-
-	return l4BreakingGroundR2Cmd
-}
-
 func CreateL4BreakingGroundR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
 	l4BreakingGroundR1Cmd := &cobra.Command{
 		Use:   "4-breaking-ground-r1",
@@ -782,6 +790,27 @@ func CreateL4BreakingGroundR1Command(infile, outfile, accessToken, leaderboardId
 	}
 
 	return l4BreakingGroundR1Cmd
+}
+
+func CreateL4BreakingGroundR2Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	l4BreakingGroundR2Cmd := &cobra.Command{
+		Use:   "4-breaking-ground-r2",
+		Short: "Prepare leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			events, parseEventsErr := ParseEventFromFile[ResourceExtractionFinished](*infile, "ResourceExtractionFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := Generate4BreakingGroundR2(events)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return l4BreakingGroundR2Cmd
 }
 
 func CreateL5CityBuilderR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
@@ -829,6 +858,27 @@ func CreateL6ExploreTheStarsR1Command(infile, outfile, accessToken, leaderboardI
 	}
 
 	return l6ExploreTheStarsR1Cmd
+}
+
+func CreateL6ExploreTheStarsR2Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
+	l6ExploreTheStarsR2Cmd := &cobra.Command{
+		Use:   "6-explore-the-stars-r2",
+		Short: "Prepare leaderboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			events, parseEventsErr := ParseEventFromFile[TransitFinished](*infile, "TransitFinished")
+			if parseEventsErr != nil {
+				return parseEventsErr
+			}
+
+			scores := Generate6ExploreTheStarsR2(events)
+
+			PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+
+			return nil
+		},
+	}
+
+	return l6ExploreTheStarsR2Cmd
 }
 
 func CreateL7ExpandTheColonyR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {

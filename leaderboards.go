@@ -164,10 +164,10 @@ func GenerateC1BaseCampToScores(staEvents []CrewStationed, conPlanEvents []Const
 			if cpe.Asteroid.Id == asteroidAPId {
 				continue
 			}
-			if cpe.BuildingType != buildingType {
+			if se.CallerCrew.Id != cpe.CallerCrew.Id {
 				continue
 			}
-			if se.CallerCrew.Id != cpe.CallerCrew.Id {
+			if cpe.BuildingType != buildingType {
 				continue
 			}
 			stationedScore = &StationedScore{
@@ -202,7 +202,6 @@ func GenerateC1BaseCampToScores(staEvents []CrewStationed, conPlanEvents []Const
 			PointsData: map[string]any{
 				"complete":          isRequirementComplete,
 				"mustReachComplete": isMustReachComplete,
-				"cap":               1000,
 				"data":              data,
 			},
 		})
@@ -367,7 +366,7 @@ func GenerateC7RockBreaker(events []ResourceExtractionFinished) []LeaderboardSco
 	return scores
 }
 
-type TransitScores struct {
+type TransitScore struct {
 	TotalAmount          uint64
 	MaterialTypesInCargo map[uint64]bool
 }
@@ -384,25 +383,25 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []TransitFinished, deReEvent
 		11: true, // Calcite
 	}
 
-	byCrews := make(map[uint64]TransitScores)
+	byCrews := make(map[uint64]TransitScore)
 	for _, trfe := range trFinEvents {
 		if trfe.Destination.Id != asteroidAPId {
 			continue
 		}
 	DELIVERY_RECEIVED_LOOP:
 		for _, dre := range deReEvents {
-			if dre.Dest.Id != asteroidAPId || dre.Dest.Id != trfe.Destination.Id || dre.Origin.Id != trfe.Origin.Id {
-				continue
-			}
 			if dre.BlockNumber < trfe.BlockNumber {
 				// DeliveryReceived should be equal or later then TransitFinished event fired
 				continue
 			}
-			var transitScores TransitScores
+			if dre.Dest.Id != asteroidAPId || dre.Dest.Id != trfe.Destination.Id || dre.Origin.Id != trfe.Origin.Id {
+				continue
+			}
+			var transitScores TransitScore
 			if ts, ok := byCrews[trfe.CallerCrew.Id]; ok {
 				transitScores = ts
 			} else {
-				transitScores = TransitScores{
+				transitScores = TransitScore{
 					MaterialTypesInCargo: make(map[uint64]bool),
 				}
 			}
@@ -488,19 +487,21 @@ func GenerateC10Potluck(stEventsV1 []MaterialProcessingStartedV1, finEvents []Ma
 
 	byCrews := make(map[uint64]uint64)
 	for _, ste := range stEventsV1 {
-		if _, ok := byCrews[ste.CallerCrew.Id]; !ok {
-			byCrews[ste.CallerCrew.Id] = 0
-		}
 		for _, fine := range finEvents {
+			if fine.BlockNumber < ste.BlockNumber {
+				continue
+			}
 			if ste.CallerCrew.Id == fine.CallerCrew.Id && ste.Processor.Id == fine.Processor.Id && ste.ProcessorSlot == fine.ProcessorSlot {
 				for _, p := range ste.Outputs.Snapshot {
 					if p.Product == foodFilterId {
+						if _, ok := byCrews[ste.CallerCrew.Id]; !ok {
+							byCrews[ste.CallerCrew.Id] = 0
+						}
 						byCrews[ste.CallerCrew.Id] += p.Amount
 					}
 				}
 			}
 		}
-
 	}
 
 	scores := []LeaderboardScore{}
@@ -605,18 +606,95 @@ func GenerateOwnerCrewsToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 	return scores
 }
 
-func Generate1TeamAssembleR2(events []Influence_Contracts_Crew_Crew_Transfer) []LeaderboardScore {
-	// TODO: !
-	cremateTypes := map[uint64]bool{
-		1: true, // Pilot
-		2: true, // Engineer
-		3: true, // Miner
-		4: true, // Merchant
-		5: true, //Scientist
+func Generate1NewRecruitsR1(recEvents []CrewmateRecruited, recV1Events []CrewmateRecruitedV1) []LeaderboardScore {
+	byCrews := make(map[uint64]uint64)
+	for _, e := range recEvents {
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
+			byCrews[e.CallerCrew.Id] = 0
+		}
+		byCrews[e.CallerCrew.Id] += 1
 	}
-	fmt.Println(cremateTypes)
+	for _, e := range recV1Events {
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
+			byCrews[e.CallerCrew.Id] = 0
+		}
+		byCrews[e.CallerCrew.Id] += 1
+	}
 
 	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		is_complete := false
+		if data >= 5 {
+			is_complete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data,
+			PointsData: map[string]any{
+				"complete": is_complete,
+			},
+		})
+	}
+
+	return scores
+}
+
+type CrewmateScore struct {
+	TotalAmount   uint64
+	CrewmateTypes map[uint64]bool
+}
+
+func Generate1NewRecruitsR2(recEvents []CrewmateRecruited, recV1Events []CrewmateRecruitedV1) []LeaderboardScore {
+	byCrews := make(map[uint64]CrewmateScore)
+	for _, e := range recEvents {
+		var cremateScore CrewmateScore
+		if cs, ok := byCrews[e.CallerCrew.Id]; ok {
+			cremateScore = cs
+		} else {
+			cremateScore = CrewmateScore{
+				CrewmateTypes: make(map[uint64]bool),
+			}
+		}
+		cremateScore.TotalAmount += 1
+		cremateScore.CrewmateTypes[e.Class] = true
+		byCrews[e.CallerCrew.Id] = cremateScore
+	}
+	for _, e := range recV1Events {
+		var cremateScore CrewmateScore
+		if cs, ok := byCrews[e.CallerCrew.Id]; ok {
+			cremateScore = cs
+		} else {
+			cremateScore = CrewmateScore{
+				CrewmateTypes: make(map[uint64]bool),
+			}
+		}
+		cremateScore.TotalAmount += 1
+		cremateScore.CrewmateTypes[e.Class] = true
+		byCrews[e.CallerCrew.Id] = cremateScore
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		var crewmateTypes []uint64
+		for crewmateType, include := range data.CrewmateTypes {
+			if include {
+				crewmateTypes = append(crewmateTypes, crewmateType)
+			}
+		}
+
+		is_complete := false
+		if len(data.CrewmateTypes) >= 2 {
+			is_complete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data.TotalAmount,
+			PointsData: map[string]any{
+				"complete":      is_complete,
+				"crewmateTypes": crewmateTypes,
+			},
+		})
+	}
 	return scores
 }
 
@@ -721,10 +799,36 @@ func Generate3MarketMakerR2(buyEvents []BuyOrderCreated, sellEvents []SellOrderC
 	return scores
 }
 
+func Generate4BreakingGroundR1(events []ResourceExtractionFinished) []LeaderboardScore {
+	byCrews := make(map[uint64]uint64)
+	for _, e := range events {
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
+			byCrews[e.CallerCrew.Id] = 0
+		}
+		byCrews[e.CallerCrew.Id] += e.Yield
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		is_complete := false
+		if data >= uint64(10000) {
+			is_complete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data,
+			PointsData: map[string]any{
+				"complete": is_complete,
+				"data":     data,
+			},
+		})
+	}
+	return scores
+}
+
 type MineScore struct {
-	CallerCrew Influence_Common_Types_Entity_Entity
-	Resource   uint64
-	Yield      uint64
+	Resource uint64
+	Yield    uint64
 }
 
 func Generate4BreakingGroundR2(events []ResourceExtractionFinished) []LeaderboardScore {
@@ -733,6 +837,7 @@ func Generate4BreakingGroundR2(events []ResourceExtractionFinished) []Leaderboar
 		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
 			byCrews[e.CallerCrew.Id] = []MineScore{}
 		}
+		fmt.Println("Crew", e.CallerCrew.Id, e.Resource, e.Yield)
 		is_added := false
 		for i, d := range byCrews[e.CallerCrew.Id] {
 			if d.Resource == e.Resource {
@@ -743,9 +848,8 @@ func Generate4BreakingGroundR2(events []ResourceExtractionFinished) []Leaderboar
 		}
 		if !is_added {
 			byCrews[e.CallerCrew.Id] = append(byCrews[e.CallerCrew.Id], MineScore{
-				CallerCrew: e.CallerCrew,
-				Resource:   e.Resource,
-				Yield:      e.Yield,
+				Resource: e.Resource,
+				Yield:    e.Yield,
 			})
 		}
 	}
@@ -759,41 +863,6 @@ func Generate4BreakingGroundR2(events []ResourceExtractionFinished) []Leaderboar
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
 			Score:   uint64(len(data)),
-			PointsData: map[string]any{
-				"complete": is_complete,
-				"data":     data,
-			},
-		})
-	}
-	return scores
-}
-
-func Generate4BreakingGroundR1(events []ResourceExtractionFinished) []LeaderboardScore {
-	byCrews := make(map[uint64][]MineScore)
-	for _, e := range events {
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = []MineScore{}
-		}
-		byCrews[e.CallerCrew.Id] = append(byCrews[e.CallerCrew.Id], MineScore{
-			CallerCrew: e.CallerCrew,
-			Resource:   e.Resource,
-			Yield:      e.Yield,
-		})
-	}
-
-	scores := []LeaderboardScore{}
-	for crew, data := range byCrews {
-		var crewTotalYeld uint64
-		for _, d := range data {
-			crewTotalYeld += d.Yield
-		}
-		is_complete := false
-		if crewTotalYeld >= uint64(10000) {
-			is_complete = true
-		}
-		scores = append(scores, LeaderboardScore{
-			Address: fmt.Sprintf("%d", crew),
-			Score:   crewTotalYeld,
 			PointsData: map[string]any{
 				"complete": is_complete,
 				"data":     data,
@@ -849,10 +918,6 @@ type ShipAssemblyFinishedScore struct {
 }
 
 func Generate6ExploreTheStarsR1(events []ShipAssemblyFinished) []LeaderboardScore {
-	/*
-		{"Name":"ShipAssemblyFinished","Event":{"Ship":{"Label":6,"Id":6},"DryDock":{"Label":5,"Id":57},"DryDockSlot":1,"Destination":{"Label":5,"Id":124},"FinishTime":1707753830,"CallerCrew":{"Label":1,"Id":39},"Caller":"0x24876d7edd78740466d3f80ec4cba1a43a72bbf201aec37b66e2019ea31b64d"}}
-	*/
-
 	byCrews := make(map[uint64][]ShipAssemblyFinishedScore, len(events))
 	for _, event := range events {
 		if _, ok := byCrews[event.CallerCrew.Id]; !ok {
@@ -861,7 +926,8 @@ func Generate6ExploreTheStarsR1(events []ShipAssemblyFinished) []LeaderboardScor
 		byCrews[event.CallerCrew.Id] = append(byCrews[event.CallerCrew.Id], ShipAssemblyFinishedScore{Caller: event.Caller,
 			FinishTime:  event.FinishTime,
 			Destination: event.Destination,
-			Ship:        event.Ship})
+			Ship:        event.Ship,
+		})
 	}
 
 	scores := []LeaderboardScore{}
@@ -872,6 +938,37 @@ func Generate6ExploreTheStarsR1(events []ShipAssemblyFinished) []LeaderboardScor
 			PointsData: map[string]any{
 				"complete": true,
 				"data":     data,
+			},
+		})
+	}
+
+	return scores
+}
+
+func Generate6ExploreTheStarsR2(events []TransitFinished) []LeaderboardScore {
+	asteroidAPId := uint64(1)
+	byCrews := make(map[uint64]uint64)
+	for _, e := range events {
+		if e.Destination.Id == asteroidAPId {
+			continue
+		}
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
+			byCrews[e.CallerCrew.Id] = 0
+		}
+		byCrews[e.CallerCrew.Id] += 1
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		is_complete := false
+		if data >= 1 {
+			is_complete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data,
+			PointsData: map[string]any{
+				"complete": is_complete,
 			},
 		})
 	}
@@ -927,55 +1024,62 @@ type DeliveryScore struct {
 func Generate8SpecialDeliveryR1(trEvents []TransitFinished, delEvents []DeliverySent) []LeaderboardScore {
 	byCrews := make(map[uint64][]DeliveryScore)
 	for _, tre := range trEvents {
-		if _, ok := byCrews[tre.CallerCrew.Id]; !ok {
-			byCrews[tre.CallerCrew.Id] = []DeliveryScore{}
-		}
-		delivery := DeliveryScore{
-			Origin:      tre.Origin,
-			Destination: tre.Destination,
-			CallerCrew:  tre.CallerCrew,
-		}
 		for _, dele := range delEvents {
+			if tre.BlockNumber < dele.BlockNumber {
+				continue
+			}
 			if dele.Origin.Id == tre.Origin.Id && dele.Dest.Id == tre.Destination.Id {
-				delivery.Products = dele.Products
+				if _, ok := byCrews[tre.CallerCrew.Id]; !ok {
+					byCrews[tre.CallerCrew.Id] = []DeliveryScore{}
+				}
+				delivery := DeliveryScore{
+					Origin:      tre.Origin,
+					Destination: tre.Destination,
+					CallerCrew:  tre.CallerCrew,
+					Products:    dele.Products,
+				}
 				for _, p := range dele.Products.Snapshot {
 					delivery.cargoHoldAmount += p.Amount
 				}
+				byCrews[tre.CallerCrew.Id] = append(byCrews[tre.CallerCrew.Id], delivery)
 			}
 		}
-
-		byCrews[tre.CallerCrew.Id] = append(byCrews[tre.CallerCrew.Id], delivery)
 	}
+
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
 		var totalCargoHoldAmount uint64
 		for _, d := range data {
 			totalCargoHoldAmount += d.cargoHoldAmount
 		}
+		is_complete := false
+		if totalCargoHoldAmount >= 1000000 {
+			is_complete = true
+		}
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
 			Score:   totalCargoHoldAmount,
 			PointsData: map[string]any{
-				"data": data,
+				"complete": is_complete,
+				"data":     data,
 			},
 		})
 	}
+
 	return scores
 }
 
 func Generate9DinnerIsServedR1(events []FoodSupplied, eventsV1 []FoodSuppliedV1) []LeaderboardScore {
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
-		_, ok := byCrews[e.CallerCrew.Id]
-		if !ok {
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
 			byCrews[e.CallerCrew.Id] = 0
 		}
 		byCrews[e.CallerCrew.Id] += e.Food
 	}
 
 	for _, e := range eventsV1 {
-		_, ok := byCrews[e.CallerCrew.Id]
-		if !ok {
+		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
 			byCrews[e.CallerCrew.Id] = 0
 		}
 		byCrews[e.CallerCrew.Id] += e.Food
