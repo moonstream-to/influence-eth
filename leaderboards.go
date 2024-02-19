@@ -151,26 +151,30 @@ type StationedScore struct {
 }
 
 func GenerateC1BaseCampToScores(staEvents []CrewStationed, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
-	stationType := uint64(1)           // TODO: Get building type for Station
-	asteroidAdaliaPrimeId := uint64(1) // TODO: Verify AP index
+	buildingType := uint64(9) // Habitat - TODO: station should contains Habitat?
+	asteroidAPId := uint64(1)
 
 	byCrews := make(map[uint64][]StationedScore)
 	for _, se := range staEvents {
 		var stationedScore *StationedScore
 		for _, cpe := range conPlanEvents {
-			if cpe.Asteroid.Id == asteroidAdaliaPrimeId {
+			if cpe.BlockNumber > se.BlockNumber {
 				continue
 			}
-			if cpe.Building.Id == se.Station.Id {
-				if cpe.BuildingType != stationType {
-					continue
-				}
-				stationedScore = &StationedScore{
-					Building:     cpe.Building,
-					BuildingType: cpe.BuildingType,
-					Station:      se.Station,
-					Asteroid:     cpe.Asteroid,
-				}
+			if cpe.Asteroid.Id == asteroidAPId {
+				continue
+			}
+			if cpe.BuildingType != buildingType {
+				continue
+			}
+			if se.CallerCrew.Id != cpe.CallerCrew.Id {
+				continue
+			}
+			stationedScore = &StationedScore{
+				Building:     cpe.Building,
+				BuildingType: cpe.BuildingType,
+				Station:      se.Station,
+				Asteroid:     cpe.Asteroid,
 			}
 		}
 		if stationedScore == nil {
@@ -369,19 +373,25 @@ type TransitScores struct {
 }
 
 func GenerateC8GoodNewsEveryoneToScores(trFinEvents []TransitFinished, deReEvents []DeliveryReceived) []LeaderboardScore {
-	asteroidAdaliaPrimeId := uint64(1) // TODO: Verify AP index
-	cTypeMaterials := map[uint64]bool{ // TODO: Verify C-Type materials product IDs
-		2: true,
+	asteroidAPId := uint64(1)
+	cTypeMaterials := map[uint64]bool{
+		1:  true, // Water
+		6:  true, // Carbon Dioxide
+		7:  true, // Carbon Monoxide
+		8:  true, // Methane
+		9:  true, //  Apatite
+		10: true, // Bitumen
+		11: true, // Calcite
 	}
 
 	byCrews := make(map[uint64]TransitScores)
 	for _, trfe := range trFinEvents {
-		if trfe.Destination.Id != asteroidAdaliaPrimeId {
+		if trfe.Destination.Id != asteroidAPId {
 			continue
 		}
 	DELIVERY_RECEIVED_LOOP:
 		for _, dre := range deReEvents {
-			if dre.Dest.Id != asteroidAdaliaPrimeId || dre.Dest.Id != trfe.Destination.Id || dre.Origin.Id != trfe.Origin.Id {
+			if dre.Dest.Id != asteroidAPId || dre.Dest.Id != trfe.Destination.Id || dre.Origin.Id != trfe.Origin.Id {
 				continue
 			}
 			if dre.BlockNumber < trfe.BlockNumber {
@@ -474,7 +484,7 @@ func GenerateC9ProspectingPaysOff(events []SamplingDepositFinished) []Leaderboar
 }
 
 func GenerateC10Potluck(stEventsV1 []MaterialProcessingStartedV1, finEvents []MaterialProcessingFinished) []LeaderboardScore {
-	foodFilterId := uint64(2) // TODO: Verify food IDs
+	foodFilterId := uint64(129) // Food
 
 	byCrews := make(map[uint64]uint64)
 	for _, ste := range stEventsV1 {
@@ -596,8 +606,15 @@ func GenerateOwnerCrewsToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 }
 
 func Generate1TeamAssembleR2(events []Influence_Contracts_Crew_Crew_Transfer) []LeaderboardScore {
-
-	// TODO: Where to fetch crewmate types
+	// TODO: !
+	cremateTypes := map[uint64]bool{
+		1: true, // Pilot
+		2: true, // Engineer
+		3: true, // Miner
+		4: true, // Merchant
+		5: true, //Scientist
+	}
+	fmt.Println(cremateTypes)
 
 	scores := []LeaderboardScore{}
 	return scores
@@ -787,8 +804,8 @@ func Generate4BreakingGroundR1(events []ResourceExtractionFinished) []Leaderboar
 }
 
 func Generate5CityBuilderR1(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
-	buildingWarehouseType := uint64(1) // TODO: Verify type of warehouse building
-	buildingExtractorType := uint64(1) // TODO: Verify type of extractor building
+	buildingWarehouseType := uint64(1)
+	buildingExtractorType := uint64(2)
 
 	byCrews := make(map[uint64][]ConstructionScore)
 	for _, cpe := range conPlanEvents {
@@ -863,11 +880,11 @@ func Generate6ExploreTheStarsR1(events []ShipAssemblyFinished) []LeaderboardScor
 }
 
 func Generate7ExpandTheColonyR1(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
-	asteroidAdaliaPrimeId := uint64(1) // TODO: Verify AP index
+	asteroidAPId := uint64(1)
 
 	byCrews := make(map[uint64][]ConstructionScore)
 	for _, cpe := range conPlanEvents {
-		if cpe.Asteroid.Id == asteroidAdaliaPrimeId {
+		if cpe.Asteroid.Id == asteroidAPId {
 			continue
 		}
 		for _, cfe := range conFinEvents {

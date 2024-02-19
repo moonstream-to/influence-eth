@@ -412,8 +412,8 @@ func CreateCL2RomulusRemusAndTheRestCommand(infile, outfile, accessToken, leader
 				return parseEventsErr
 			}
 
-			asteroids := map[uint64]bool{ // TODO: verify AP index
-				1: true,
+			asteroids := map[uint64]bool{
+				1: true, // AP
 			}
 			scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, nil, asteroids, 25000, 75000)
 
@@ -440,9 +440,9 @@ func CreateCL3LearnByDoingCommand(infile, outfile, accessToken, leaderboardId *s
 				return parseEventsErr
 			}
 
-			buildingTypes := map[uint64]bool{ // TODO: verify  Warehouse, Extractor indexes
-				6: true,
-				7: true,
+			buildingTypes := map[uint64]bool{
+				1: true, // Warehouse
+				2: true, // Extractor
 			}
 			scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 10000, 30000)
 
@@ -469,11 +469,11 @@ func CreateCL4FourPillarsCommand(infile, outfile, accessToken, leaderboardId *st
 				return parseEventsErr
 			}
 
-			buildingTypes := map[uint64]bool{ // TODO: verify  Refinery, Bioreactor, Factory, Shipyard indexes
-				4: true,
-				5: true,
-				6: true,
-				7: true,
+			buildingTypes := map[uint64]bool{
+				3: true, // Refinery
+				4: true, // Bioreactor
+				5: true, // Factory
+				6: true, // Shipyard
 			}
 			scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 5000, 15000)
 
@@ -500,10 +500,10 @@ func CreateCL5TogetherWeCanRiseCommand(infile, outfile, accessToken, leaderboard
 				return parseEventsErr
 			}
 
-			buildingTypes := map[uint64]bool{ // TODO: verify  Spaceport, Marketplace, Habitat indexes
-				1: true,
-				2: true,
-				3: true,
+			buildingTypes := map[uint64]bool{
+				7: true, // Spaceport
+				8: true, // Marketplace
+				9: true, // Habitat
 			}
 			scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 300, 1000)
 
@@ -834,7 +834,7 @@ func CreateL6ExploreTheStarsR1Command(infile, outfile, accessToken, leaderboardI
 func CreateL7ExpandTheColonyR1Command(infile, outfile, accessToken, leaderboardId *string) *cobra.Command {
 	l7ExpandTheColonyR1Cmd := &cobra.Command{
 		Use:   "7-expand-the-colony-r1",
-		Short: "Prepare leaderboard for Mission 7 Requirement 1",
+		Short: "Prepare leaderboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			conFinEvents, parseEventsErr := ParseEventFromFile[ConstructionFinished](*infile, "ConstructionFinished")
 			if parseEventsErr != nil {
