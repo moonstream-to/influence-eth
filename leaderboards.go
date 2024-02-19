@@ -105,16 +105,16 @@ func UpdateLeaderboardScores(accessToken, leaderboardId string, body io.Reader) 
 
 }
 
-func PrepareLeaderboardOutput(scores []LeaderboardScore, outfile, accessToken, leaderboardId string) {
+func PrepareLeaderboardOutput(scores []LeaderboardScore, outfile, accessToken, leaderboardId string) error {
 	jsonData, marshErr := json.Marshal(scores)
 	if marshErr != nil {
-		log.Fatalf("Error marshaling scores: %v", marshErr)
+		return fmt.Errorf("Error marshaling scores: %v", marshErr)
 	}
 
 	if outfile != "" {
 		writeErr := os.WriteFile(outfile, jsonData, 0644)
 		if writeErr != nil {
-			log.Fatalf("Error writing to file: %v", marshErr)
+			return fmt.Errorf("Error writing to file: %v", marshErr)
 		}
 	}
 
@@ -124,12 +124,13 @@ func PrepareLeaderboardOutput(scores []LeaderboardScore, outfile, accessToken, l
 	}
 
 	if leaderboardId != "" && accessToken != "" {
-		statusCode, reqErr := UpdateLeaderboardScores(accessToken, leaderboardId, bytes.NewBuffer(jsonData))
+		_, reqErr := UpdateLeaderboardScores(accessToken, leaderboardId, bytes.NewBuffer(jsonData))
 		if reqErr != nil {
-			log.Fatal(reqErr)
+			return reqErr
 		}
-		fmt.Printf("Status code: %d\n", statusCode)
+
 	}
+	return nil
 }
 
 func FindAndDeleteBigInt(original []*big.Int, delItem *big.Int) []*big.Int {
@@ -837,7 +838,6 @@ func Generate4BreakingGroundR2(events []ResourceExtractionFinished) []Leaderboar
 		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
 			byCrews[e.CallerCrew.Id] = []MineScore{}
 		}
-		fmt.Println("Crew", e.CallerCrew.Id, e.Resource, e.Yield)
 		is_added := false
 		for i, d := range byCrews[e.CallerCrew.Id] {
 			if d.Resource == e.Resource {
