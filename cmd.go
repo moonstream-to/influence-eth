@@ -561,16 +561,12 @@ func CreateLeaderboardCommand() *cobra.Command {
 }
 
 func CL1BaseCamp(infile, outfile, accessToken, leaderboardId *string) error {
-	staEvents, parseEventsErr := ParseEventFromFile[CrewStationed](*infile, "CrewStationed")
-	if parseEventsErr != nil {
-		return parseEventsErr
-	}
-	conPlanEvents, parseEventsErr := ParseEventFromFile[ConstructionPlanned](*infile, "ConstructionPlanned")
+	events, parseEventsErr := ParseEventFromFile[TransitFinished](*infile, "TransitFinished")
 	if parseEventsErr != nil {
 		return parseEventsErr
 	}
 
-	scores := GenerateC1BaseCampToScores(staEvents, conPlanEvents)
+	scores := GenerateC1BaseCampToScores(events)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {

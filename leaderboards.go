@@ -157,62 +157,45 @@ func FindAndDeleteBigInt(original []*big.Int, delItem *big.Int) []*big.Int {
 	return original[:idx]
 }
 
-type StationedScore struct {
-	Building     Influence_Common_Types_Entity_Entity
-	BuildingType uint64
-	Asteroid     Influence_Common_Types_Entity_Entity
-	Station      Influence_Common_Types_Entity_Entity
+type TransitionScore struct {
+	TotalAmount      uint64
+	VisitedAsteroids map[uint64]uint64
 }
 
-func GenerateC1BaseCampToScores(staEvents []EventWrapper[CrewStationed], conPlanEvents []EventWrapper[ConstructionPlanned]) []LeaderboardScore {
-	buildingType := uint64(9) // Habitat - TODO: station should contains Habitat?
+func GenerateC1BaseCampToScores(events []EventWrapper[TransitFinished]) []LeaderboardScore {
 	asteroidAPId := uint64(1)
 
-	byCrews := make(map[uint64][]StationedScore)
-	for _, se := range staEvents {
-		var stationedScore *StationedScore
-		for _, cpe := range conPlanEvents {
-			if cpe.Event.BlockNumber > se.Event.BlockNumber {
-				continue
-			}
-			if cpe.Event.Asteroid.Id == asteroidAPId {
-				continue
-			}
-			if se.Event.CallerCrew.Id != cpe.Event.CallerCrew.Id {
-				continue
-			}
-			if cpe.Event.BuildingType != buildingType {
-				continue
-			}
-			stationedScore = &StationedScore{
-				Building:     cpe.Event.Building,
-				BuildingType: cpe.Event.BuildingType,
-				Station:      se.Event.Station,
-				Asteroid:     cpe.Event.Asteroid,
-			}
-		}
-		if stationedScore == nil {
+	byCrews := make(map[uint64]TransitionScore)
+	for _, e := range events {
+		if e.Event.Destination.Id == asteroidAPId {
 			continue
 		}
-		if _, ok := byCrews[se.Event.CallerCrew.Id]; !ok {
-			byCrews[se.Event.CallerCrew.Id] = []StationedScore{}
+		var transitScore TransitionScore
+		if ts, ok := byCrews[e.Event.CallerCrew.Id]; ok {
+			transitScore = ts
+		} else {
+			transitScore = TransitionScore{
+				VisitedAsteroids: make(map[uint64]uint64),
+			}
 		}
-		byCrews[se.Event.CallerCrew.Id] = append(byCrews[se.Event.CallerCrew.Id], *stationedScore)
+		transitScore.TotalAmount += 1
+		transitScore.VisitedAsteroids[e.Event.Destination.Id] += 1
+		byCrews[e.Event.CallerCrew.Id] = transitScore
 	}
 
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
 		isRequirementComplete := false
 		isMustReachComplete := false
-		if len(data) >= 1 {
+		if data.TotalAmount >= 1 {
 			isRequirementComplete = true
 		}
-		if len(data) >= 10 {
+		if data.TotalAmount >= 10 {
 			isMustReachComplete = true
 		}
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
-			Score:   uint64(len(data)),
+			Score:   data.TotalAmount,
 			PointsData: map[string]any{
 				"complete":          isRequirementComplete,
 				"mustReachComplete": isMustReachComplete,
@@ -378,11 +361,6 @@ func GenerateC7RockBreaker(events []EventWrapper[ResourceExtractionFinished]) []
 		})
 	}
 	return scores
-}
-
-type TransitScore struct {
-	TotalAmount          uint64
-	MaterialTypesInCargo map[uint64]bool
 }
 
 func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinished], unknownEvents []EventWrapper[RawEvent]) []LeaderboardScore {
