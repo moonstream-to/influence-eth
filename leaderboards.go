@@ -164,6 +164,7 @@ type TransitionScore struct {
 
 func GenerateC1BaseCampToScores(events []EventWrapper[TransitFinished]) []LeaderboardScore {
 	asteroidAPId := uint64(1)
+	var mustReachCounter uint64
 
 	byCrews := make(map[uint64]TransitionScore)
 	for _, e := range events {
@@ -181,25 +182,24 @@ func GenerateC1BaseCampToScores(events []EventWrapper[TransitFinished]) []Leader
 		transitScore.TotalAmount += 1
 		transitScore.VisitedAsteroids[e.Event.Destination.Id] += 1
 		byCrews[e.Event.CallerCrew.Id] = transitScore
+		mustReachCounter++
 	}
 
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
 		isRequirementComplete := false
-		isMustReachComplete := false
+
 		if data.TotalAmount >= 1 {
 			isRequirementComplete = true
 		}
-		if data.TotalAmount >= 10 {
-			isMustReachComplete = true
-		}
+
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data.TotalAmount,
 			PointsData: map[string]any{
-				"complete":          isRequirementComplete,
-				"mustReachComplete": isMustReachComplete,
-				"data":              data,
+				"complete":  isRequirementComplete,
+				"mustReach": mustReachCounter,
+				"data":      data,
 			},
 		})
 	}
@@ -218,7 +218,14 @@ type ConstructionsScore struct {
 	BuildingTypes map[uint64]bool
 }
 
-func GenerateCommunityConstructionsToScores(conPlanEvents []EventWrapper[ConstructionPlanned], conFinEvents []EventWrapper[ConstructionFinished], buildingTypes, asteroids map[uint64]bool, mustReach, cap int) []LeaderboardScore {
+func GenerateCommunityConstructionsToScores(
+	conPlanEvents []EventWrapper[ConstructionPlanned],
+	conFinEvents []EventWrapper[ConstructionFinished],
+	buildingTypes, asteroids map[uint64]bool,
+	cap int,
+) []LeaderboardScore {
+	var mustReachCounter uint64
+
 	byCrews := make(map[uint64]ConstructionsScore)
 	for _, cpe := range conPlanEvents {
 		if buildingTypes != nil {
@@ -254,6 +261,7 @@ func GenerateCommunityConstructionsToScores(conPlanEvents []EventWrapper[Constru
 				})
 				constructionsScores.BuildingTypes[cpe.Event.BuildingType] = true
 				byCrews[cfe.Event.CallerCrew.Id] = constructionsScores
+				mustReachCounter++
 
 				break CONSTRUCTION_FINISHED_LOOP
 			}
@@ -272,18 +280,11 @@ func GenerateCommunityConstructionsToScores(conPlanEvents []EventWrapper[Constru
 		pointsData := map[string]any{
 			"complete":      false,
 			"buildingTypes": buildingTypes,
+			"mustReach":     mustReachCounter,
 			"data":          data,
 		}
 		if len(data.Constructions) >= 1 {
 			pointsData["complete"] = true
-		}
-		if mustReach != 0 {
-			_, isComplete := pointsData["complete"]
-			if isComplete && len(data.Constructions) >= mustReach {
-				pointsData["mustReachComplete"] = true
-			} else {
-				pointsData["mustReachComplete"] = false
-			}
 		}
 
 		if cap != 0 {
@@ -299,32 +300,31 @@ func GenerateCommunityConstructionsToScores(conPlanEvents []EventWrapper[Constru
 }
 
 func GenerateC6TheFleet(events []EventWrapper[ShipAssemblyFinished]) []LeaderboardScore {
+	var mustReachCounter uint64
+
 	byCrews := make(map[uint64][]uint64)
 	for _, e := range events {
 		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
 			byCrews[e.Event.CallerCrew.Id] = []uint64{}
 		}
 		byCrews[e.Event.CallerCrew.Id] = append(byCrews[e.Event.CallerCrew.Id], e.Event.Ship.Id)
+		mustReachCounter++
 	}
 
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
 		isRequirementComplete := false
-		isMustReachComplete := false
 		if len(data) >= 1 {
 			isRequirementComplete = true
-		}
-		if len(data) >= 200 {
-			isMustReachComplete = true
 		}
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
 			Score:   uint64(len(data)),
 			PointsData: map[string]any{
-				"complete":          isRequirementComplete,
-				"mustReachComplete": isMustReachComplete,
-				"cap":               1000,
-				"data":              data,
+				"complete":  isRequirementComplete,
+				"mustReach": mustReachCounter,
+				"cap":       1000,
+				"data":      data,
 			},
 		})
 	}
@@ -332,31 +332,30 @@ func GenerateC6TheFleet(events []EventWrapper[ShipAssemblyFinished]) []Leaderboa
 }
 
 func GenerateC7RockBreaker(events []EventWrapper[ResourceExtractionFinished]) []LeaderboardScore {
+	var mustReachCounter uint64
+
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
 		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
 			byCrews[e.Event.CallerCrew.Id] = 0
 		}
 		byCrews[e.Event.CallerCrew.Id] += e.Event.Yield
+		mustReachCounter += e.Event.Yield
 	}
 
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
 		isRequirementComplete := false
-		isMustReachComplete := false
 		if data >= 1000 {
 			isRequirementComplete = true
-		}
-		if data >= 25000000000 {
-			isMustReachComplete = true
 		}
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"complete":          isRequirementComplete,
-				"mustReachComplete": isMustReachComplete,
-				"cap":               50000000000,
+				"complete":  isRequirementComplete,
+				"mustReach": mustReachCounter,
+				"cap":       50000000000,
 			},
 		})
 	}
@@ -374,6 +373,7 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinish
 		10: true, // Bitumen
 		11: true, // Calcite
 	}
+	var mustReachCounter uint64
 
 	byCrews := make(map[uint64]uint64)
 	for _, tre := range trFinEvents {
@@ -417,25 +417,22 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinish
 			byCrews[tre.Event.CallerCrew.Id] = 0
 		}
 		byCrews[tre.Event.CallerCrew.Id] += possibleProductsAmount
+		mustReachCounter += possibleProductsAmount
 	}
 
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
 		isRequirementComplete := false
-		isMustReachComplete := false
 		if data >= 500000 {
 			isRequirementComplete = true
-		}
-		if data >= 100000000 {
-			isMustReachComplete = true
 		}
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"complete":          isRequirementComplete,
-				"mustReachComplete": isMustReachComplete,
-				"cap":               1000000000,
+				"complete":  isRequirementComplete,
+				"mustReach": mustReachCounter,
+				"cap":       1000000000,
 			},
 		})
 	}
@@ -443,31 +440,30 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinish
 }
 
 func GenerateC9ProspectingPaysOff(events []EventWrapper[SamplingDepositFinished]) []LeaderboardScore {
+	var mustReachCounter uint64
+
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
 		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
 			byCrews[e.Event.CallerCrew.Id] = 0
 		}
 		byCrews[e.Event.CallerCrew.Id] += e.Event.InitialYield
+		mustReachCounter += e.Event.InitialYield
 	}
 
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
 		isRequirementComplete := false
-		isMustReachComplete := false
 		if data >= 1 {
 			isRequirementComplete = true
-		}
-		if data >= 50000 {
-			isMustReachComplete = true
 		}
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"cmplete":           isRequirementComplete,
-				"mustReachComplete": isMustReachComplete,
-				"cap":               1000000000,
+				"cmplete":   isRequirementComplete,
+				"mustReach": mustReachCounter,
+				"cap":       1000000000,
 			},
 		})
 	}
@@ -476,6 +472,7 @@ func GenerateC9ProspectingPaysOff(events []EventWrapper[SamplingDepositFinished]
 
 func GenerateC10Potluck(stEventsV1 []EventWrapper[MaterialProcessingStartedV1], finEvents []EventWrapper[MaterialProcessingFinished]) []LeaderboardScore {
 	foodFilterId := uint64(129) // Food
+	var mustReachCounter uint64
 
 	byCrews := make(map[uint64]uint64)
 	for _, ste := range stEventsV1 {
@@ -490,6 +487,7 @@ func GenerateC10Potluck(stEventsV1 []EventWrapper[MaterialProcessingStartedV1], 
 							byCrews[ste.Event.CallerCrew.Id] = 0
 						}
 						byCrews[ste.Event.CallerCrew.Id] += p.Amount
+						mustReachCounter += p.Amount
 					}
 				}
 			}
@@ -499,20 +497,16 @@ func GenerateC10Potluck(stEventsV1 []EventWrapper[MaterialProcessingStartedV1], 
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
 		isRequirementComplete := false
-		isMustReachComplete := false
 		if data >= 5000 {
 			isRequirementComplete = true
-		}
-		if data >= 20000 {
-			isMustReachComplete = true
 		}
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"complete":          isRequirementComplete,
-				"mustReachComplete": isMustReachComplete,
-				"cap":               75000,
+				"complete":  isRequirementComplete,
+				"mustReach": mustReachCounter,
+				"cap":       75000,
 			},
 		})
 	}
