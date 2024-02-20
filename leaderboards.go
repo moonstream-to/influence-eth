@@ -30,7 +30,12 @@ type TokenKey struct {
 	BigInt *big.Int
 }
 
-func ParseEventFromFile[T any](filePath, expectedEventName string) ([]T, error) {
+type EventWrapper[T any] struct {
+	EventLineNumber int
+	Event           T
+}
+
+func ParseEventFromFile[T any](filePath, expectedEventName string) ([]EventWrapper[T], error) {
 	var inputFile *os.File
 	var readErr error
 
@@ -45,10 +50,13 @@ func ParseEventFromFile[T any](filePath, expectedEventName string) ([]T, error) 
 
 	defer inputFile.Close()
 
-	var events []T
+	var events []EventWrapper[T]
+	lineNumber := 0
 
 	scanner := bufio.NewScanner(inputFile)
 	for scanner.Scan() {
+		lineNumber++
+
 		var line PartialEvent
 		unmErr := json.Unmarshal(scanner.Bytes(), &line)
 		if unmErr != nil {
@@ -67,7 +75,12 @@ func ParseEventFromFile[T any](filePath, expectedEventName string) ([]T, error) 
 			continue
 		}
 
-		events = append(events, event)
+		eventWrapper := EventWrapper[T]{
+			EventLineNumber: lineNumber,
+			Event:           event,
+		}
+
+		events = append(events, eventWrapper)
 	}
 
 	if scanErr := scanner.Err(); scanErr != nil {
@@ -151,7 +164,7 @@ type StationedScore struct {
 	Station      Influence_Common_Types_Entity_Entity
 }
 
-func GenerateC1BaseCampToScores(staEvents []CrewStationed, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
+func GenerateC1BaseCampToScores(staEvents []EventWrapper[CrewStationed], conPlanEvents []EventWrapper[ConstructionPlanned]) []LeaderboardScore {
 	buildingType := uint64(9) // Habitat - TODO: station should contains Habitat?
 	asteroidAPId := uint64(1)
 
@@ -159,32 +172,32 @@ func GenerateC1BaseCampToScores(staEvents []CrewStationed, conPlanEvents []Const
 	for _, se := range staEvents {
 		var stationedScore *StationedScore
 		for _, cpe := range conPlanEvents {
-			if cpe.BlockNumber > se.BlockNumber {
+			if cpe.Event.BlockNumber > se.Event.BlockNumber {
 				continue
 			}
-			if cpe.Asteroid.Id == asteroidAPId {
+			if cpe.Event.Asteroid.Id == asteroidAPId {
 				continue
 			}
-			if se.CallerCrew.Id != cpe.CallerCrew.Id {
+			if se.Event.CallerCrew.Id != cpe.Event.CallerCrew.Id {
 				continue
 			}
-			if cpe.BuildingType != buildingType {
+			if cpe.Event.BuildingType != buildingType {
 				continue
 			}
 			stationedScore = &StationedScore{
-				Building:     cpe.Building,
-				BuildingType: cpe.BuildingType,
-				Station:      se.Station,
-				Asteroid:     cpe.Asteroid,
+				Building:     cpe.Event.Building,
+				BuildingType: cpe.Event.BuildingType,
+				Station:      se.Event.Station,
+				Asteroid:     cpe.Event.Asteroid,
 			}
 		}
 		if stationedScore == nil {
 			continue
 		}
-		if _, ok := byCrews[se.CallerCrew.Id]; !ok {
-			byCrews[se.CallerCrew.Id] = []StationedScore{}
+		if _, ok := byCrews[se.Event.CallerCrew.Id]; !ok {
+			byCrews[se.Event.CallerCrew.Id] = []StationedScore{}
 		}
-		byCrews[se.CallerCrew.Id] = append(byCrews[se.CallerCrew.Id], *stationedScore)
+		byCrews[se.Event.CallerCrew.Id] = append(byCrews[se.Event.CallerCrew.Id], *stationedScore)
 	}
 
 	scores := []LeaderboardScore{}
@@ -222,27 +235,27 @@ type ConstructionsScore struct {
 	BuildingTypes map[uint64]bool
 }
 
-func GenerateCommunityConstructionsToScores(conPlanEvents []ConstructionPlanned, conFinEvents []ConstructionFinished, buildingTypes, asteroids map[uint64]bool, mustReach, cap int) []LeaderboardScore {
+func GenerateCommunityConstructionsToScores(conPlanEvents []EventWrapper[ConstructionPlanned], conFinEvents []EventWrapper[ConstructionFinished], buildingTypes, asteroids map[uint64]bool, mustReach, cap int) []LeaderboardScore {
 	byCrews := make(map[uint64]ConstructionsScore)
 	for _, cpe := range conPlanEvents {
 		if buildingTypes != nil {
-			if _, ok := buildingTypes[cpe.BuildingType]; !ok {
+			if _, ok := buildingTypes[cpe.Event.BuildingType]; !ok {
 				// Pass by building type
 				continue
 			}
 		}
 		if asteroids != nil {
-			if _, ok := asteroids[cpe.Asteroid.Id]; !ok {
+			if _, ok := asteroids[cpe.Event.Asteroid.Id]; !ok {
 				// Pass by asteroid ID
 				continue
 			}
 		}
 	CONSTRUCTION_FINISHED_LOOP:
 		for _, cfe := range conFinEvents {
-			if cfe.CallerCrew.Id == cpe.CallerCrew.Id && cfe.Building.Id == cpe.Building.Id {
+			if cfe.Event.CallerCrew.Id == cpe.Event.CallerCrew.Id && cfe.Event.Building.Id == cpe.Event.Building.Id {
 				// Match ConstructionPlanned and ConstructionFinished events
 				var constructionsScores ConstructionsScore
-				if cs, ok := byCrews[cfe.CallerCrew.Id]; ok {
+				if cs, ok := byCrews[cfe.Event.CallerCrew.Id]; ok {
 					constructionsScores = cs
 				} else {
 					constructionsScores = ConstructionsScore{
@@ -251,13 +264,13 @@ func GenerateCommunityConstructionsToScores(conPlanEvents []ConstructionPlanned,
 				}
 
 				constructionsScores.Constructions = append(constructionsScores.Constructions, ConstructionScore{
-					CallerCrew:   cpe.CallerCrew,
-					Asteroid:     cpe.Asteroid,
-					Building:     cpe.Building,
-					BuildingType: cpe.BuildingType,
+					CallerCrew:   cpe.Event.CallerCrew,
+					Asteroid:     cpe.Event.Asteroid,
+					Building:     cpe.Event.Building,
+					BuildingType: cpe.Event.BuildingType,
 				})
-				constructionsScores.BuildingTypes[cpe.BuildingType] = true
-				byCrews[cfe.CallerCrew.Id] = constructionsScores
+				constructionsScores.BuildingTypes[cpe.Event.BuildingType] = true
+				byCrews[cfe.Event.CallerCrew.Id] = constructionsScores
 
 				break CONSTRUCTION_FINISHED_LOOP
 			}
@@ -302,13 +315,13 @@ func GenerateCommunityConstructionsToScores(conPlanEvents []ConstructionPlanned,
 	return scores
 }
 
-func GenerateC6TheFleet(events []ShipAssemblyFinished) []LeaderboardScore {
+func GenerateC6TheFleet(events []EventWrapper[ShipAssemblyFinished]) []LeaderboardScore {
 	byCrews := make(map[uint64][]uint64)
 	for _, e := range events {
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = []uint64{}
+		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
+			byCrews[e.Event.CallerCrew.Id] = []uint64{}
 		}
-		byCrews[e.CallerCrew.Id] = append(byCrews[e.CallerCrew.Id], e.Ship.Id)
+		byCrews[e.Event.CallerCrew.Id] = append(byCrews[e.Event.CallerCrew.Id], e.Event.Ship.Id)
 	}
 
 	scores := []LeaderboardScore{}
@@ -335,13 +348,13 @@ func GenerateC6TheFleet(events []ShipAssemblyFinished) []LeaderboardScore {
 	return scores
 }
 
-func GenerateC7RockBreaker(events []ResourceExtractionFinished) []LeaderboardScore {
+func GenerateC7RockBreaker(events []EventWrapper[ResourceExtractionFinished]) []LeaderboardScore {
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = 0
+		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
+			byCrews[e.Event.CallerCrew.Id] = 0
 		}
-		byCrews[e.CallerCrew.Id] += e.Yield
+		byCrews[e.Event.CallerCrew.Id] += e.Event.Yield
 	}
 
 	scores := []LeaderboardScore{}
@@ -372,7 +385,7 @@ type TransitScore struct {
 	MaterialTypesInCargo map[uint64]bool
 }
 
-func GenerateC8GoodNewsEveryoneToScores(trFinEvents []TransitFinished, deReEvents []DeliveryReceived) []LeaderboardScore {
+func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinished], deReEvents []EventWrapper[DeliveryReceived]) []LeaderboardScore {
 	asteroidAPId := uint64(1)
 	cTypeMaterials := map[uint64]bool{
 		1:  true, // Water
@@ -386,27 +399,27 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []TransitFinished, deReEvent
 
 	byCrews := make(map[uint64]TransitScore)
 	for _, trfe := range trFinEvents {
-		if trfe.Destination.Id != asteroidAPId {
+		if trfe.Event.Destination.Id != asteroidAPId {
 			continue
 		}
 	DELIVERY_RECEIVED_LOOP:
 		for _, dre := range deReEvents {
-			if dre.BlockNumber < trfe.BlockNumber {
+			if dre.Event.BlockNumber < trfe.Event.BlockNumber {
 				// DeliveryReceived should be equal or later then TransitFinished event fired
 				continue
 			}
-			if dre.Dest.Id != asteroidAPId || dre.Dest.Id != trfe.Destination.Id || dre.Origin.Id != trfe.Origin.Id {
+			if dre.Event.Dest.Id != asteroidAPId || dre.Event.Dest.Id != trfe.Event.Destination.Id || dre.Event.Origin.Id != trfe.Event.Origin.Id {
 				continue
 			}
 			var transitScores TransitScore
-			if ts, ok := byCrews[trfe.CallerCrew.Id]; ok {
+			if ts, ok := byCrews[trfe.Event.CallerCrew.Id]; ok {
 				transitScores = ts
 			} else {
 				transitScores = TransitScore{
 					MaterialTypesInCargo: make(map[uint64]bool),
 				}
 			}
-			for _, product := range dre.Products.Snapshot {
+			for _, product := range dre.Event.Products.Snapshot {
 				if _, ok := cTypeMaterials[product.Product]; ok {
 					// Filter out C-Type materials
 					continue
@@ -414,7 +427,7 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []TransitFinished, deReEvent
 				transitScores.TotalAmount += product.Amount
 				transitScores.MaterialTypesInCargo[product.Product] = true
 			}
-			byCrews[trfe.CallerCrew.Id] = transitScores
+			byCrews[trfe.Event.CallerCrew.Id] = transitScores
 
 			break DELIVERY_RECEIVED_LOOP
 		}
@@ -451,13 +464,13 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []TransitFinished, deReEvent
 	return scores
 }
 
-func GenerateC9ProspectingPaysOff(events []SamplingDepositFinished) []LeaderboardScore {
+func GenerateC9ProspectingPaysOff(events []EventWrapper[SamplingDepositFinished]) []LeaderboardScore {
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = 0
+		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
+			byCrews[e.Event.CallerCrew.Id] = 0
 		}
-		byCrews[e.CallerCrew.Id] += e.InitialYield
+		byCrews[e.Event.CallerCrew.Id] += e.Event.InitialYield
 	}
 
 	scores := []LeaderboardScore{}
@@ -483,22 +496,22 @@ func GenerateC9ProspectingPaysOff(events []SamplingDepositFinished) []Leaderboar
 	return scores
 }
 
-func GenerateC10Potluck(stEventsV1 []MaterialProcessingStartedV1, finEvents []MaterialProcessingFinished) []LeaderboardScore {
+func GenerateC10Potluck(stEventsV1 []EventWrapper[MaterialProcessingStartedV1], finEvents []EventWrapper[MaterialProcessingFinished]) []LeaderboardScore {
 	foodFilterId := uint64(129) // Food
 
 	byCrews := make(map[uint64]uint64)
 	for _, ste := range stEventsV1 {
 		for _, fine := range finEvents {
-			if fine.BlockNumber < ste.BlockNumber {
+			if fine.Event.BlockNumber < ste.Event.BlockNumber {
 				continue
 			}
-			if ste.CallerCrew.Id == fine.CallerCrew.Id && ste.Processor.Id == fine.Processor.Id && ste.ProcessorSlot == fine.ProcessorSlot {
-				for _, p := range ste.Outputs.Snapshot {
+			if ste.Event.CallerCrew.Id == fine.Event.CallerCrew.Id && ste.Event.Processor.Id == fine.Event.Processor.Id && ste.Event.ProcessorSlot == fine.Event.ProcessorSlot {
+				for _, p := range ste.Event.Outputs.Snapshot {
 					if p.Product == foodFilterId {
-						if _, ok := byCrews[ste.CallerCrew.Id]; !ok {
-							byCrews[ste.CallerCrew.Id] = 0
+						if _, ok := byCrews[ste.Event.CallerCrew.Id]; !ok {
+							byCrews[ste.Event.CallerCrew.Id] = 0
 						}
-						byCrews[ste.CallerCrew.Id] += p.Amount
+						byCrews[ste.Event.CallerCrew.Id] += p.Amount
 					}
 				}
 			}
@@ -528,18 +541,18 @@ func GenerateC10Potluck(stEventsV1 []MaterialProcessingStartedV1, finEvents []Ma
 	return scores
 }
 
-func GenerateCrewOwnersToScores(events []Influence_Contracts_Crew_Crew_Transfer) []LeaderboardScore {
+func GenerateCrewOwnersToScores(events []EventWrapper[Influence_Contracts_Crew_Crew_Transfer]) []LeaderboardScore {
 	// Prepare crew owners map in format (390: 0x123)
 	crewOwners := make(map[string]string)
 	crewOwnerKeys := []TokenKey{}
 
 	for _, event := range events {
-		tokenIdStr := event.TokenId.String()
+		tokenIdStr := event.Event.TokenId.String()
 
-		if event.To != "0x0" {
+		if event.Event.To != "0x0" {
 			delete(crewOwners, tokenIdStr)
 		}
-		crewOwners[tokenIdStr] = event.To
+		crewOwners[tokenIdStr] = event.Event.To
 
 		is_found := false
 		for _, tk := range crewOwnerKeys {
@@ -549,7 +562,7 @@ func GenerateCrewOwnersToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 			}
 		}
 		if !is_found {
-			crewOwnerKeys = append(crewOwnerKeys, TokenKey{Str: tokenIdStr, BigInt: event.TokenId})
+			crewOwnerKeys = append(crewOwnerKeys, TokenKey{Str: tokenIdStr, BigInt: event.Event.TokenId})
 		}
 	}
 
@@ -571,19 +584,19 @@ func GenerateCrewOwnersToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 	return scores
 }
 
-func GenerateOwnerCrewsToScores(events []Influence_Contracts_Crew_Crew_Transfer) []LeaderboardScore {
+func GenerateOwnerCrewsToScores(events []EventWrapper[Influence_Contracts_Crew_Crew_Transfer]) []LeaderboardScore {
 	// Prepare owner crews map in format (0x123: [390, 428])
 	ownerCrews := make(map[string][]*big.Int)
 	for _, event := range events {
-		if vals, ok := ownerCrews[event.To]; ok {
-			ownerCrews[event.To] = append(vals, event.TokenId)
-			if event.From != "0x0" {
-				ownerCrews[event.From] = FindAndDeleteBigInt(ownerCrews[event.From], event.TokenId)
+		if vals, ok := ownerCrews[event.Event.To]; ok {
+			ownerCrews[event.Event.To] = append(vals, event.Event.TokenId)
+			if event.Event.From != "0x0" {
+				ownerCrews[event.Event.From] = FindAndDeleteBigInt(ownerCrews[event.Event.From], event.Event.TokenId)
 			}
 		} else {
-			ownerCrews[event.To] = []*big.Int{event.TokenId}
-			if event.From != "0x0" {
-				ownerCrews[event.From] = FindAndDeleteBigInt(ownerCrews[event.From], event.TokenId)
+			ownerCrews[event.Event.To] = []*big.Int{event.Event.TokenId}
+			if event.Event.From != "0x0" {
+				ownerCrews[event.Event.From] = FindAndDeleteBigInt(ownerCrews[event.Event.From], event.Event.TokenId)
 			}
 		}
 	}
@@ -607,19 +620,19 @@ func GenerateOwnerCrewsToScores(events []Influence_Contracts_Crew_Crew_Transfer)
 	return scores
 }
 
-func Generate1NewRecruitsR1(recEvents []CrewmateRecruited, recV1Events []CrewmateRecruitedV1) []LeaderboardScore {
+func Generate1NewRecruitsR1(recEvents []EventWrapper[CrewmateRecruited], recV1Events []EventWrapper[CrewmateRecruitedV1]) []LeaderboardScore {
 	byCrews := make(map[uint64]uint64)
 	for _, e := range recEvents {
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = 0
+		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
+			byCrews[e.Event.CallerCrew.Id] = 0
 		}
-		byCrews[e.CallerCrew.Id] += 1
+		byCrews[e.Event.CallerCrew.Id] += 1
 	}
 	for _, e := range recV1Events {
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = 0
+		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
+			byCrews[e.Event.CallerCrew.Id] = 0
 		}
-		byCrews[e.CallerCrew.Id] += 1
+		byCrews[e.Event.CallerCrew.Id] += 1
 	}
 
 	scores := []LeaderboardScore{}
@@ -645,11 +658,11 @@ type CrewmateScore struct {
 	CrewmateTypes map[uint64]bool
 }
 
-func Generate1NewRecruitsR2(recEvents []CrewmateRecruited, recV1Events []CrewmateRecruitedV1) []LeaderboardScore {
+func Generate1NewRecruitsR2(recEvents []EventWrapper[CrewmateRecruited], recV1Events []EventWrapper[CrewmateRecruitedV1]) []LeaderboardScore {
 	byCrews := make(map[uint64]CrewmateScore)
 	for _, e := range recEvents {
 		var cremateScore CrewmateScore
-		if cs, ok := byCrews[e.CallerCrew.Id]; ok {
+		if cs, ok := byCrews[e.Event.CallerCrew.Id]; ok {
 			cremateScore = cs
 		} else {
 			cremateScore = CrewmateScore{
@@ -657,12 +670,12 @@ func Generate1NewRecruitsR2(recEvents []CrewmateRecruited, recV1Events []Crewmat
 			}
 		}
 		cremateScore.TotalAmount += 1
-		cremateScore.CrewmateTypes[e.Class] = true
-		byCrews[e.CallerCrew.Id] = cremateScore
+		cremateScore.CrewmateTypes[e.Event.Class] = true
+		byCrews[e.Event.CallerCrew.Id] = cremateScore
 	}
 	for _, e := range recV1Events {
 		var cremateScore CrewmateScore
-		if cs, ok := byCrews[e.CallerCrew.Id]; ok {
+		if cs, ok := byCrews[e.Event.CallerCrew.Id]; ok {
 			cremateScore = cs
 		} else {
 			cremateScore = CrewmateScore{
@@ -670,8 +683,8 @@ func Generate1NewRecruitsR2(recEvents []CrewmateRecruited, recV1Events []Crewmat
 			}
 		}
 		cremateScore.TotalAmount += 1
-		cremateScore.CrewmateTypes[e.Class] = true
-		byCrews[e.CallerCrew.Id] = cremateScore
+		cremateScore.CrewmateTypes[e.Event.Class] = true
+		byCrews[e.Event.CallerCrew.Id] = cremateScore
 	}
 
 	scores := []LeaderboardScore{}
@@ -699,22 +712,22 @@ func Generate1NewRecruitsR2(recEvents []CrewmateRecruited, recV1Events []Crewmat
 	return scores
 }
 
-func Generate2BuriedTreasureR1(stEventsV1 []MaterialProcessingStartedV1, finEvents []MaterialProcessingFinished, sofEvents []SellOrderFilled) []LeaderboardScore {
+func Generate2BuriedTreasureR1(stEventsV1 []EventWrapper[MaterialProcessingStartedV1], finEvents []EventWrapper[MaterialProcessingFinished], sofEvents []EventWrapper[SellOrderFilled]) []LeaderboardScore {
 	cdFilterId := uint64(175) // Core Drill
 
 	byCrews := make(map[uint64]uint64)
 	for _, ste := range stEventsV1 {
 		for _, fine := range finEvents {
-			if fine.BlockNumber < ste.BlockNumber {
+			if fine.Event.BlockNumber < ste.Event.BlockNumber {
 				continue
 			}
-			if ste.CallerCrew.Id == fine.CallerCrew.Id && ste.Processor.Id == fine.Processor.Id && ste.ProcessorSlot == fine.ProcessorSlot {
-				for _, p := range ste.Outputs.Snapshot {
+			if ste.Event.CallerCrew.Id == fine.Event.CallerCrew.Id && ste.Event.Processor.Id == fine.Event.Processor.Id && ste.Event.ProcessorSlot == fine.Event.ProcessorSlot {
+				for _, p := range ste.Event.Outputs.Snapshot {
 					if p.Product == cdFilterId {
-						if _, ok := byCrews[ste.CallerCrew.Id]; !ok {
-							byCrews[ste.CallerCrew.Id] = 0
+						if _, ok := byCrews[ste.Event.CallerCrew.Id]; !ok {
+							byCrews[ste.Event.CallerCrew.Id] = 0
 						}
-						byCrews[ste.CallerCrew.Id] += p.Amount
+						byCrews[ste.Event.CallerCrew.Id] += p.Amount
 					}
 				}
 			}
@@ -722,13 +735,13 @@ func Generate2BuriedTreasureR1(stEventsV1 []MaterialProcessingStartedV1, finEven
 	}
 
 	for _, sof := range sofEvents {
-		if sof.Product != cdFilterId {
+		if sof.Event.Product != cdFilterId {
 			continue
 		}
-		if _, ok := byCrews[sof.CallerCrew.Id]; !ok {
-			byCrews[sof.CallerCrew.Id] = 0
+		if _, ok := byCrews[sof.Event.CallerCrew.Id]; !ok {
+			byCrews[sof.Event.CallerCrew.Id] = 0
 		}
-		byCrews[sof.CallerCrew.Id] += sof.Amount
+		byCrews[sof.Event.CallerCrew.Id] += sof.Event.Amount
 	}
 
 	scores := []LeaderboardScore{}
@@ -754,17 +767,17 @@ type SampleScore struct {
 	SampleTypes map[uint64]bool
 }
 
-func Generate2BuriedTreasureR2(sdsEvents []SamplingDepositStarted, sdsEventsV1 []SamplingDepositStartedV1, sdfEvents []SamplingDepositFinished) []LeaderboardScore {
+func Generate2BuriedTreasureR2(sdsEvents []EventWrapper[SamplingDepositStarted], sdsEventsV1 []EventWrapper[SamplingDepositStartedV1], sdfEvents []EventWrapper[SamplingDepositFinished]) []LeaderboardScore {
 	byCrews := make(map[uint64]SampleScore)
 	for _, sds := range sdsEvents {
 	DEPOSIT_FINISHED_LOOP:
 		for _, sdf := range sdfEvents {
-			if sdf.BlockNumber < sds.BlockNumber {
+			if sdf.Event.BlockNumber < sds.Event.BlockNumber {
 				continue
 			}
-			if sds.CallerCrew.Id == sdf.CallerCrew.Id && sds.Deposit.Id == sdf.Deposit.Id {
+			if sds.Event.CallerCrew.Id == sdf.Event.CallerCrew.Id && sds.Event.Deposit.Id == sdf.Event.Deposit.Id {
 				var sampleScore SampleScore
-				if ss, ok := byCrews[sds.CallerCrew.Id]; ok {
+				if ss, ok := byCrews[sds.Event.CallerCrew.Id]; ok {
 					sampleScore = ss
 				} else {
 					sampleScore = SampleScore{
@@ -772,8 +785,8 @@ func Generate2BuriedTreasureR2(sdsEvents []SamplingDepositStarted, sdsEventsV1 [
 					}
 				}
 				sampleScore.TotalAmount += 1
-				sampleScore.SampleTypes[sds.Resource] = true
-				byCrews[sds.CallerCrew.Id] = sampleScore
+				sampleScore.SampleTypes[sds.Event.Resource] = true
+				byCrews[sds.Event.CallerCrew.Id] = sampleScore
 				break DEPOSIT_FINISHED_LOOP
 			}
 		}
@@ -782,12 +795,12 @@ func Generate2BuriedTreasureR2(sdsEvents []SamplingDepositStarted, sdsEventsV1 [
 	for _, sds := range sdsEventsV1 {
 	DEPOSIT_FINISHED_LOOP_V1:
 		for _, sdf := range sdfEvents {
-			if sdf.BlockNumber < sds.BlockNumber {
+			if sdf.Event.BlockNumber < sds.Event.BlockNumber {
 				continue
 			}
-			if sds.CallerCrew.Id == sdf.CallerCrew.Id && sds.Deposit.Id == sdf.Deposit.Id {
+			if sds.Event.CallerCrew.Id == sdf.Event.CallerCrew.Id && sds.Event.Deposit.Id == sdf.Event.Deposit.Id {
 				var sampleScore SampleScore
-				if ss, ok := byCrews[sds.CallerCrew.Id]; ok {
+				if ss, ok := byCrews[sds.Event.CallerCrew.Id]; ok {
 					sampleScore = ss
 				} else {
 					sampleScore = SampleScore{
@@ -795,8 +808,8 @@ func Generate2BuriedTreasureR2(sdsEvents []SamplingDepositStarted, sdsEventsV1 [
 					}
 				}
 				sampleScore.TotalAmount += 1
-				sampleScore.SampleTypes[sds.Resource] = true
-				byCrews[sds.CallerCrew.Id] = sampleScore
+				sampleScore.SampleTypes[sds.Event.Resource] = true
+				byCrews[sds.Event.CallerCrew.Id] = sampleScore
 				break DEPOSIT_FINISHED_LOOP_V1
 			}
 		}
@@ -838,30 +851,30 @@ type CrewOrdersScore struct {
 	SellOrders []OrderScore
 }
 
-func Generate3MarketMakerR1(buyEvents []BuyOrderFilled, sellEvents []SellOrderFilled) []LeaderboardScore {
+func Generate3MarketMakerR1(buyEvents []EventWrapper[BuyOrderFilled], sellEvents []EventWrapper[SellOrderFilled]) []LeaderboardScore {
 	byCrews := make(map[uint64]CrewOrdersScore)
 	for _, e := range buyEvents {
-		crewOrdersScore, ok := byCrews[e.CallerCrew.Id]
+		crewOrdersScore, ok := byCrews[e.Event.CallerCrew.Id]
 		if !ok {
-			byCrews[e.CallerCrew.Id] = CrewOrdersScore{}
+			byCrews[e.Event.CallerCrew.Id] = CrewOrdersScore{}
 		}
 		crewOrdersScore.BuyOrders = append(crewOrdersScore.BuyOrders, OrderScore{
-			Product: e.Product,
-			Amount:  e.Amount,
+			Product: e.Event.Product,
+			Amount:  e.Event.Amount,
 		})
-		byCrews[e.CallerCrew.Id] = crewOrdersScore
+		byCrews[e.Event.CallerCrew.Id] = crewOrdersScore
 	}
 
 	for _, e := range sellEvents {
-		crewOrdersScore, ok := byCrews[e.CallerCrew.Id]
+		crewOrdersScore, ok := byCrews[e.Event.CallerCrew.Id]
 		if !ok {
-			byCrews[e.CallerCrew.Id] = CrewOrdersScore{}
+			byCrews[e.Event.CallerCrew.Id] = CrewOrdersScore{}
 		}
 		crewOrdersScore.SellOrders = append(crewOrdersScore.SellOrders, OrderScore{
-			Product: e.Product,
-			Amount:  e.Amount,
+			Product: e.Event.Product,
+			Amount:  e.Event.Amount,
 		})
-		byCrews[e.CallerCrew.Id] = crewOrdersScore
+		byCrews[e.Event.CallerCrew.Id] = crewOrdersScore
 	}
 
 	scores := []LeaderboardScore{}
@@ -883,30 +896,30 @@ func Generate3MarketMakerR1(buyEvents []BuyOrderFilled, sellEvents []SellOrderFi
 	return scores
 }
 
-func Generate3MarketMakerR2(buyEvents []BuyOrderCreated, sellEvents []SellOrderCreated) []LeaderboardScore {
+func Generate3MarketMakerR2(buyEvents []EventWrapper[BuyOrderCreated], sellEvents []EventWrapper[SellOrderCreated]) []LeaderboardScore {
 	byCrews := make(map[uint64]CrewOrdersScore)
 	for _, e := range buyEvents {
-		crewOrdersScore, ok := byCrews[e.CallerCrew.Id]
+		crewOrdersScore, ok := byCrews[e.Event.CallerCrew.Id]
 		if !ok {
-			byCrews[e.CallerCrew.Id] = CrewOrdersScore{}
+			byCrews[e.Event.CallerCrew.Id] = CrewOrdersScore{}
 		}
 		crewOrdersScore.BuyOrders = append(crewOrdersScore.BuyOrders, OrderScore{
-			Product: e.Product,
-			Amount:  e.Amount,
+			Product: e.Event.Product,
+			Amount:  e.Event.Amount,
 		})
-		byCrews[e.CallerCrew.Id] = crewOrdersScore
+		byCrews[e.Event.CallerCrew.Id] = crewOrdersScore
 	}
 
 	for _, e := range sellEvents {
-		crewOrdersScore, ok := byCrews[e.CallerCrew.Id]
+		crewOrdersScore, ok := byCrews[e.Event.CallerCrew.Id]
 		if !ok {
-			byCrews[e.CallerCrew.Id] = CrewOrdersScore{}
+			byCrews[e.Event.CallerCrew.Id] = CrewOrdersScore{}
 		}
 		crewOrdersScore.SellOrders = append(crewOrdersScore.SellOrders, OrderScore{
-			Product: e.Product,
-			Amount:  e.Amount,
+			Product: e.Event.Product,
+			Amount:  e.Event.Amount,
 		})
-		byCrews[e.CallerCrew.Id] = crewOrdersScore
+		byCrews[e.Event.CallerCrew.Id] = crewOrdersScore
 	}
 
 	scores := []LeaderboardScore{}
@@ -928,13 +941,13 @@ func Generate3MarketMakerR2(buyEvents []BuyOrderCreated, sellEvents []SellOrderC
 	return scores
 }
 
-func Generate4BreakingGroundR1(events []ResourceExtractionFinished) []LeaderboardScore {
+func Generate4BreakingGroundR1(events []EventWrapper[ResourceExtractionFinished]) []LeaderboardScore {
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = 0
+		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
+			byCrews[e.Event.CallerCrew.Id] = 0
 		}
-		byCrews[e.CallerCrew.Id] += e.Yield
+		byCrews[e.Event.CallerCrew.Id] += e.Event.Yield
 	}
 
 	scores := []LeaderboardScore{}
@@ -960,24 +973,24 @@ type MineScore struct {
 	Yield    uint64
 }
 
-func Generate4BreakingGroundR2(events []ResourceExtractionFinished) []LeaderboardScore {
+func Generate4BreakingGroundR2(events []EventWrapper[ResourceExtractionFinished]) []LeaderboardScore {
 	byCrews := make(map[uint64][]MineScore)
 	for _, e := range events {
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = []MineScore{}
+		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
+			byCrews[e.Event.CallerCrew.Id] = []MineScore{}
 		}
 		is_added := false
-		for i, d := range byCrews[e.CallerCrew.Id] {
-			if d.Resource == e.Resource {
-				byCrews[e.CallerCrew.Id][i].Yield += e.Yield
+		for i, d := range byCrews[e.Event.CallerCrew.Id] {
+			if d.Resource == e.Event.Resource {
+				byCrews[e.Event.CallerCrew.Id][i].Yield += e.Event.Yield
 				is_added = true
 				break
 			}
 		}
 		if !is_added {
-			byCrews[e.CallerCrew.Id] = append(byCrews[e.CallerCrew.Id], MineScore{
-				Resource: e.Resource,
-				Yield:    e.Yield,
+			byCrews[e.Event.CallerCrew.Id] = append(byCrews[e.Event.CallerCrew.Id], MineScore{
+				Resource: e.Event.Resource,
+				Yield:    e.Event.Yield,
 			})
 		}
 	}
@@ -1000,25 +1013,25 @@ func Generate4BreakingGroundR2(events []ResourceExtractionFinished) []Leaderboar
 	return scores
 }
 
-func Generate5CityBuilder(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
+func Generate5CityBuilder(conFinEvents []EventWrapper[ConstructionFinished], conPlanEvents []EventWrapper[ConstructionPlanned]) []LeaderboardScore {
 	buildingWarehouseType := uint64(1)
 	buildingExtractorType := uint64(2)
 
 	byCrews := make(map[uint64][]ConstructionScore)
 	for _, cpe := range conPlanEvents {
-		if cpe.BuildingType == buildingWarehouseType || cpe.BuildingType == buildingExtractorType {
+		if cpe.Event.BuildingType == buildingWarehouseType || cpe.Event.BuildingType == buildingExtractorType {
 			continue
 		}
 		for _, cfe := range conFinEvents {
-			if cfe.CallerCrew.Id == cpe.CallerCrew.Id && cfe.Building.Id == cpe.Building.Id {
-				if _, ok := byCrews[cfe.CallerCrew.Id]; !ok {
-					byCrews[cfe.CallerCrew.Id] = []ConstructionScore{}
+			if cfe.Event.CallerCrew.Id == cpe.Event.CallerCrew.Id && cfe.Event.Building.Id == cpe.Event.Building.Id {
+				if _, ok := byCrews[cfe.Event.CallerCrew.Id]; !ok {
+					byCrews[cfe.Event.CallerCrew.Id] = []ConstructionScore{}
 				}
-				byCrews[cfe.CallerCrew.Id] = append(byCrews[cfe.CallerCrew.Id], ConstructionScore{
-					CallerCrew:   cpe.CallerCrew,
-					Asteroid:     cpe.Asteroid,
-					Building:     cpe.Building,
-					BuildingType: cpe.BuildingType,
+				byCrews[cfe.Event.CallerCrew.Id] = append(byCrews[cfe.Event.CallerCrew.Id], ConstructionScore{
+					CallerCrew:   cpe.Event.CallerCrew,
+					Asteroid:     cpe.Event.Asteroid,
+					Building:     cpe.Event.Building,
+					BuildingType: cpe.Event.BuildingType,
 				})
 			}
 		}
@@ -1045,16 +1058,16 @@ type ShipAssemblyFinishedScore struct {
 	Ship        Influence_Common_Types_Entity_Entity
 }
 
-func Generate6ExploreTheStarsR1(events []ShipAssemblyFinished) []LeaderboardScore {
+func Generate6ExploreTheStarsR1(events []EventWrapper[ShipAssemblyFinished]) []LeaderboardScore {
 	byCrews := make(map[uint64][]ShipAssemblyFinishedScore, len(events))
 	for _, event := range events {
-		if _, ok := byCrews[event.CallerCrew.Id]; !ok {
-			byCrews[event.CallerCrew.Id] = []ShipAssemblyFinishedScore{}
+		if _, ok := byCrews[event.Event.CallerCrew.Id]; !ok {
+			byCrews[event.Event.CallerCrew.Id] = []ShipAssemblyFinishedScore{}
 		}
-		byCrews[event.CallerCrew.Id] = append(byCrews[event.CallerCrew.Id], ShipAssemblyFinishedScore{Caller: event.Caller,
-			FinishTime:  event.FinishTime,
-			Destination: event.Destination,
-			Ship:        event.Ship,
+		byCrews[event.Event.CallerCrew.Id] = append(byCrews[event.Event.CallerCrew.Id], ShipAssemblyFinishedScore{Caller: event.Event.Caller,
+			FinishTime:  event.Event.FinishTime,
+			Destination: event.Event.Destination,
+			Ship:        event.Event.Ship,
 		})
 	}
 
@@ -1073,17 +1086,17 @@ func Generate6ExploreTheStarsR1(events []ShipAssemblyFinished) []LeaderboardScor
 	return scores
 }
 
-func Generate6ExploreTheStarsR2(events []TransitFinished) []LeaderboardScore {
+func Generate6ExploreTheStarsR2(events []EventWrapper[TransitFinished]) []LeaderboardScore {
 	asteroidAPId := uint64(1)
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
-		if e.Destination.Id == asteroidAPId {
+		if e.Event.Destination.Id == asteroidAPId {
 			continue
 		}
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = 0
+		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
+			byCrews[e.Event.CallerCrew.Id] = 0
 		}
-		byCrews[e.CallerCrew.Id] += 1
+		byCrews[e.Event.CallerCrew.Id] += 1
 	}
 
 	scores := []LeaderboardScore{}
@@ -1104,24 +1117,24 @@ func Generate6ExploreTheStarsR2(events []TransitFinished) []LeaderboardScore {
 	return scores
 }
 
-func Generate7ExpandTheColony(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
+func Generate7ExpandTheColony(conFinEvents []EventWrapper[ConstructionFinished], conPlanEvents []EventWrapper[ConstructionPlanned]) []LeaderboardScore {
 	asteroidAPId := uint64(1)
 
 	byCrews := make(map[uint64][]ConstructionScore)
 	for _, cpe := range conPlanEvents {
-		if cpe.Asteroid.Id == asteroidAPId {
+		if cpe.Event.Asteroid.Id == asteroidAPId {
 			continue
 		}
 		for _, cfe := range conFinEvents {
-			if cfe.CallerCrew.Id == cpe.CallerCrew.Id && cfe.Building.Id == cpe.Building.Id {
-				if _, ok := byCrews[cfe.CallerCrew.Id]; !ok {
-					byCrews[cfe.CallerCrew.Id] = []ConstructionScore{}
+			if cfe.Event.CallerCrew.Id == cpe.Event.CallerCrew.Id && cfe.Event.Building.Id == cpe.Event.Building.Id {
+				if _, ok := byCrews[cfe.Event.CallerCrew.Id]; !ok {
+					byCrews[cfe.Event.CallerCrew.Id] = []ConstructionScore{}
 				}
-				byCrews[cfe.CallerCrew.Id] = append(byCrews[cfe.CallerCrew.Id], ConstructionScore{
-					CallerCrew:   cpe.CallerCrew,
-					Asteroid:     cpe.Asteroid,
-					Building:     cpe.Building,
-					BuildingType: cpe.BuildingType,
+				byCrews[cfe.Event.CallerCrew.Id] = append(byCrews[cfe.Event.CallerCrew.Id], ConstructionScore{
+					CallerCrew:   cpe.Event.CallerCrew,
+					Asteroid:     cpe.Event.Asteroid,
+					Building:     cpe.Event.Building,
+					BuildingType: cpe.Event.BuildingType,
 				})
 			}
 		}
@@ -1149,27 +1162,27 @@ type DeliveryScore struct {
 	cargoHoldAmount uint64
 }
 
-func Generate8SpecialDelivery(trEvents []TransitFinished, delEvents []DeliverySent) []LeaderboardScore {
+func Generate8SpecialDelivery(trEvents []EventWrapper[TransitFinished], delEvents []EventWrapper[DeliverySent]) []LeaderboardScore {
 	byCrews := make(map[uint64][]DeliveryScore)
 	for _, tre := range trEvents {
 		for _, dele := range delEvents {
-			if tre.BlockNumber < dele.BlockNumber {
+			if tre.Event.BlockNumber < dele.Event.BlockNumber {
 				continue
 			}
-			if dele.Origin.Id == tre.Origin.Id && dele.Dest.Id == tre.Destination.Id {
-				if _, ok := byCrews[tre.CallerCrew.Id]; !ok {
-					byCrews[tre.CallerCrew.Id] = []DeliveryScore{}
+			if dele.Event.Origin.Id == tre.Event.Origin.Id && dele.Event.Dest.Id == tre.Event.Destination.Id {
+				if _, ok := byCrews[tre.Event.CallerCrew.Id]; !ok {
+					byCrews[tre.Event.CallerCrew.Id] = []DeliveryScore{}
 				}
 				delivery := DeliveryScore{
-					Origin:      tre.Origin,
-					Destination: tre.Destination,
-					CallerCrew:  tre.CallerCrew,
-					Products:    dele.Products,
+					Origin:      tre.Event.Origin,
+					Destination: tre.Event.Destination,
+					CallerCrew:  tre.Event.CallerCrew,
+					Products:    dele.Event.Products,
 				}
-				for _, p := range dele.Products.Snapshot {
+				for _, p := range dele.Event.Products.Snapshot {
 					delivery.cargoHoldAmount += p.Amount
 				}
-				byCrews[tre.CallerCrew.Id] = append(byCrews[tre.CallerCrew.Id], delivery)
+				byCrews[tre.Event.CallerCrew.Id] = append(byCrews[tre.Event.CallerCrew.Id], delivery)
 			}
 		}
 	}
@@ -1197,20 +1210,20 @@ func Generate8SpecialDelivery(trEvents []TransitFinished, delEvents []DeliverySe
 	return scores
 }
 
-func Generate9DinnerIsServed(events []FoodSupplied, eventsV1 []FoodSuppliedV1) []LeaderboardScore {
+func Generate9DinnerIsServed(events []EventWrapper[FoodSupplied], eventsV1 []EventWrapper[FoodSuppliedV1]) []LeaderboardScore {
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = 0
+		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
+			byCrews[e.Event.CallerCrew.Id] = 0
 		}
-		byCrews[e.CallerCrew.Id] += e.Food
+		byCrews[e.Event.CallerCrew.Id] += e.Event.Food
 	}
 
 	for _, e := range eventsV1 {
-		if _, ok := byCrews[e.CallerCrew.Id]; !ok {
-			byCrews[e.CallerCrew.Id] = 0
+		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
+			byCrews[e.Event.CallerCrew.Id] = 0
 		}
-		byCrews[e.CallerCrew.Id] += e.Food
+		byCrews[e.Event.CallerCrew.Id] += e.Event.Food
 	}
 
 	scores := []LeaderboardScore{}
