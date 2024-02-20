@@ -699,6 +699,134 @@ func Generate1NewRecruitsR2(recEvents []CrewmateRecruited, recV1Events []Crewmat
 	return scores
 }
 
+func Generate2BuriedTreasureR1(stEventsV1 []MaterialProcessingStartedV1, finEvents []MaterialProcessingFinished, sofEvents []SellOrderFilled) []LeaderboardScore {
+	cdFilterId := uint64(175) // Core Drill
+
+	byCrews := make(map[uint64]uint64)
+	for _, ste := range stEventsV1 {
+		for _, fine := range finEvents {
+			if fine.BlockNumber < ste.BlockNumber {
+				continue
+			}
+			if ste.CallerCrew.Id == fine.CallerCrew.Id && ste.Processor.Id == fine.Processor.Id && ste.ProcessorSlot == fine.ProcessorSlot {
+				for _, p := range ste.Outputs.Snapshot {
+					if p.Product == cdFilterId {
+						if _, ok := byCrews[ste.CallerCrew.Id]; !ok {
+							byCrews[ste.CallerCrew.Id] = 0
+						}
+						byCrews[ste.CallerCrew.Id] += p.Amount
+					}
+				}
+			}
+		}
+	}
+
+	for _, sof := range sofEvents {
+		if sof.Product != cdFilterId {
+			continue
+		}
+		if _, ok := byCrews[sof.CallerCrew.Id]; !ok {
+			byCrews[sof.CallerCrew.Id] = 0
+		}
+		byCrews[sof.CallerCrew.Id] += sof.Amount
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		is_complete := false
+		if data >= 5 {
+			is_complete = true
+		}
+
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data,
+			PointsData: map[string]any{
+				"complete": is_complete,
+			},
+		})
+	}
+	return scores
+}
+
+type SampleScore struct {
+	TotalAmount uint64
+	SampleTypes map[uint64]bool
+}
+
+func Generate2BuriedTreasureR2(sdsEvents []SamplingDepositStarted, sdsEventsV1 []SamplingDepositStartedV1, sdfEvents []SamplingDepositFinished) []LeaderboardScore {
+	byCrews := make(map[uint64]SampleScore)
+	for _, sds := range sdsEvents {
+	DEPOSIT_FINISHED_LOOP:
+		for _, sdf := range sdfEvents {
+			if sdf.BlockNumber < sds.BlockNumber {
+				continue
+			}
+			if sds.CallerCrew.Id == sdf.CallerCrew.Id && sds.Deposit.Id == sdf.Deposit.Id {
+				var sampleScore SampleScore
+				if ss, ok := byCrews[sds.CallerCrew.Id]; ok {
+					sampleScore = ss
+				} else {
+					sampleScore = SampleScore{
+						SampleTypes: make(map[uint64]bool),
+					}
+				}
+				sampleScore.TotalAmount += 1
+				sampleScore.SampleTypes[sds.Resource] = true
+				byCrews[sds.CallerCrew.Id] = sampleScore
+				break DEPOSIT_FINISHED_LOOP
+			}
+		}
+	}
+
+	for _, sds := range sdsEventsV1 {
+	DEPOSIT_FINISHED_LOOP_V1:
+		for _, sdf := range sdfEvents {
+			if sdf.BlockNumber < sds.BlockNumber {
+				continue
+			}
+			if sds.CallerCrew.Id == sdf.CallerCrew.Id && sds.Deposit.Id == sdf.Deposit.Id {
+				var sampleScore SampleScore
+				if ss, ok := byCrews[sds.CallerCrew.Id]; ok {
+					sampleScore = ss
+				} else {
+					sampleScore = SampleScore{
+						SampleTypes: make(map[uint64]bool),
+					}
+				}
+				sampleScore.TotalAmount += 1
+				sampleScore.SampleTypes[sds.Resource] = true
+				byCrews[sds.CallerCrew.Id] = sampleScore
+				break DEPOSIT_FINISHED_LOOP_V1
+			}
+		}
+	}
+
+	scores := []LeaderboardScore{}
+	for crew, data := range byCrews {
+		var sampleTypes []uint64
+		for sampleType, include := range data.SampleTypes {
+			if include {
+				sampleTypes = append(sampleTypes, sampleType)
+			}
+		}
+
+		is_complete := false
+		if len(data.SampleTypes) >= 5 {
+			is_complete = true
+		}
+		scores = append(scores, LeaderboardScore{
+			Address: fmt.Sprintf("%d", crew),
+			Score:   data.TotalAmount,
+			PointsData: map[string]any{
+				"complete":    is_complete,
+				"sampleTypes": sampleTypes,
+			},
+		})
+	}
+	return scores
+}
+
 type OrderScore struct {
 	Product uint64
 	Amount  uint64
@@ -872,7 +1000,7 @@ func Generate4BreakingGroundR2(events []ResourceExtractionFinished) []Leaderboar
 	return scores
 }
 
-func Generate5CityBuilderR1(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
+func Generate5CityBuilder(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
 	buildingWarehouseType := uint64(1)
 	buildingExtractorType := uint64(2)
 
@@ -976,7 +1104,7 @@ func Generate6ExploreTheStarsR2(events []TransitFinished) []LeaderboardScore {
 	return scores
 }
 
-func Generate7ExpandTheColonyR1(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
+func Generate7ExpandTheColony(conFinEvents []ConstructionFinished, conPlanEvents []ConstructionPlanned) []LeaderboardScore {
 	asteroidAPId := uint64(1)
 
 	byCrews := make(map[uint64][]ConstructionScore)
@@ -1021,7 +1149,7 @@ type DeliveryScore struct {
 	cargoHoldAmount uint64
 }
 
-func Generate8SpecialDeliveryR1(trEvents []TransitFinished, delEvents []DeliverySent) []LeaderboardScore {
+func Generate8SpecialDelivery(trEvents []TransitFinished, delEvents []DeliverySent) []LeaderboardScore {
 	byCrews := make(map[uint64][]DeliveryScore)
 	for _, tre := range trEvents {
 		for _, dele := range delEvents {
@@ -1069,7 +1197,7 @@ func Generate8SpecialDeliveryR1(trEvents []TransitFinished, delEvents []Delivery
 	return scores
 }
 
-func Generate9DinnerIsServedR1(events []FoodSupplied, eventsV1 []FoodSuppliedV1) []LeaderboardScore {
+func Generate9DinnerIsServed(events []FoodSupplied, eventsV1 []FoodSuppliedV1) []LeaderboardScore {
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
 		if _, ok := byCrews[e.CallerCrew.Id]; !ok {

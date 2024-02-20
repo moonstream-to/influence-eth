@@ -397,8 +397,16 @@ var LEADERBOARD_MISSIONS = []LeaderboardCommandFunc{
 		Description: "Prepare leaderboard",
 		Func:        L1NewRecruitsR2,
 	},
-	// l2r1
-	// l2r2
+	{
+		Name:        "2-buried-treasure-r1",
+		Description: "Prepare leaderboard",
+		Func:        L2BuriedTreasureR1,
+	},
+	{
+		Name:        "2-buried-treasure-r2",
+		Description: "Prepare leaderboard",
+		Func:        L2BuriedTreasureR2,
+	},
 	{
 		Name:        "3-market-maker-r1",
 		Description: "Prepare leaderboard",
@@ -420,9 +428,9 @@ var LEADERBOARD_MISSIONS = []LeaderboardCommandFunc{
 		Func:        L4BreakingGroundR2,
 	},
 	{
-		Name:        "5-city-builder-r1",
+		Name:        "5-city-builder",
 		Description: "Prepare leaderboard",
-		Func:        L5CityBuilderR1,
+		Func:        L5CityBuilder,
 	},
 	{
 		Name:        "6-explore-the-stars-r1",
@@ -435,19 +443,19 @@ var LEADERBOARD_MISSIONS = []LeaderboardCommandFunc{
 		Func:        L6ExploreTheStarsR2,
 	},
 	{
-		Name:        "7-expand-the-colony-r1",
+		Name:        "7-expand-the-colony",
 		Description: "Prepare leaderboard",
-		Func:        L7ExpandTheColonyR1,
+		Func:        L7ExpandTheColony,
 	},
 	{
-		Name:        "8-special-delivery-r1",
+		Name:        "8-special-delivery",
 		Description: "Prepare leaderboard",
-		Func:        L8SpecialDeliveryR1,
+		Func:        L8SpecialDelivery,
 	},
 	{
-		Name:        "9-dinner-is-served-r1",
+		Name:        "9-dinner-is-served",
 		Description: "Prepare leaderboard",
-		Func:        L9DinnerIsServedR1,
+		Func:        L9DinnerIsServed,
 	},
 }
 
@@ -532,6 +540,7 @@ func CreateLeaderboardCommand() *cobra.Command {
 	leaderboardCmd.PersistentFlags().StringVarP(&leaderboardId, "leaderboard-id", "l", "", "Leaderboard ID to update data for at Moonstream.to portal")
 
 	for _, lm := range LEADERBOARD_MISSIONS {
+		lm := lm // Create a local copy of lm for closure to capture
 		newCmd := &cobra.Command{
 			Use:   lm.Name,
 			Short: lm.Description,
@@ -845,6 +854,54 @@ func L1NewRecruitsR2(infile, outfile, accessToken, leaderboardId *string) error 
 	return nil
 }
 
+func L2BuriedTreasureR1(infile, outfile, accessToken, leaderboardId *string) error {
+	stEventsV1, parseEventsErr := ParseEventFromFile[MaterialProcessingStartedV1](*infile, "MaterialProcessingStartedV1")
+	if parseEventsErr != nil {
+		return parseEventsErr
+	}
+	finEvents, parseEventsErr := ParseEventFromFile[MaterialProcessingFinished](*infile, "MaterialProcessingFinished")
+	if parseEventsErr != nil {
+		return parseEventsErr
+	}
+	sofEvents, parseEventsErr := ParseEventFromFile[SellOrderFilled](*infile, "SellOrderFilled")
+	if parseEventsErr != nil {
+		return parseEventsErr
+	}
+
+	scores := Generate2BuriedTreasureR1(stEventsV1, finEvents, sofEvents)
+
+	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+	if outErr != nil {
+		return outErr
+	}
+
+	return nil
+}
+
+func L2BuriedTreasureR2(infile, outfile, accessToken, leaderboardId *string) error {
+	sdsEvents, parseEventsErr := ParseEventFromFile[SamplingDepositStarted](*infile, "SamplingDepositStarted")
+	if parseEventsErr != nil {
+		return parseEventsErr
+	}
+	sdsEventsV1, parseEventsErr := ParseEventFromFile[SamplingDepositStartedV1](*infile, "SamplingDepositStartedV1")
+	if parseEventsErr != nil {
+		return parseEventsErr
+	}
+	sdfEvents, parseEventsErr := ParseEventFromFile[SamplingDepositFinished](*infile, "SamplingDepositFinished")
+	if parseEventsErr != nil {
+		return parseEventsErr
+	}
+
+	scores := Generate2BuriedTreasureR2(sdsEvents, sdsEventsV1, sdfEvents)
+
+	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
+	if outErr != nil {
+		return outErr
+	}
+
+	return nil
+}
+
 func L3MarketMakerR1(infile, outfile, accessToken, leaderboardId *string) error {
 	buyEvents, parseEventsErr := ParseEventFromFile[BuyOrderFilled](*infile, "BuyOrderFilled")
 	if parseEventsErr != nil {
@@ -917,7 +974,7 @@ func L4BreakingGroundR2(infile, outfile, accessToken, leaderboardId *string) err
 	return nil
 }
 
-func L5CityBuilderR1(infile, outfile, accessToken, leaderboardId *string) error {
+func L5CityBuilder(infile, outfile, accessToken, leaderboardId *string) error {
 	conFinEvents, parseEventsErr := ParseEventFromFile[ConstructionFinished](*infile, "ConstructionFinished")
 	if parseEventsErr != nil {
 		return parseEventsErr
@@ -928,7 +985,7 @@ func L5CityBuilderR1(infile, outfile, accessToken, leaderboardId *string) error 
 		return parseEventsErr
 	}
 
-	scores := Generate5CityBuilderR1(conFinEvents, conPlanEvents)
+	scores := Generate5CityBuilder(conFinEvents, conPlanEvents)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
@@ -970,7 +1027,7 @@ func L6ExploreTheStarsR2(infile, outfile, accessToken, leaderboardId *string) er
 	return nil
 }
 
-func L7ExpandTheColonyR1(infile, outfile, accessToken, leaderboardId *string) error {
+func L7ExpandTheColony(infile, outfile, accessToken, leaderboardId *string) error {
 	conFinEvents, parseEventsErr := ParseEventFromFile[ConstructionFinished](*infile, "ConstructionFinished")
 	if parseEventsErr != nil {
 		return parseEventsErr
@@ -981,7 +1038,7 @@ func L7ExpandTheColonyR1(infile, outfile, accessToken, leaderboardId *string) er
 		return parseEventsErr
 	}
 
-	scores := Generate7ExpandTheColonyR1(conFinEvents, conPlanEvents)
+	scores := Generate7ExpandTheColony(conFinEvents, conPlanEvents)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
@@ -991,7 +1048,7 @@ func L7ExpandTheColonyR1(infile, outfile, accessToken, leaderboardId *string) er
 	return nil
 }
 
-func L8SpecialDeliveryR1(infile, outfile, accessToken, leaderboardId *string) error {
+func L8SpecialDelivery(infile, outfile, accessToken, leaderboardId *string) error {
 	trEvents, parseEventsErr := ParseEventFromFile[TransitFinished](*infile, "TransitFinished")
 	if parseEventsErr != nil {
 		return parseEventsErr
@@ -1002,7 +1059,7 @@ func L8SpecialDeliveryR1(infile, outfile, accessToken, leaderboardId *string) er
 		return parseEventsErr
 	}
 
-	scores := Generate8SpecialDeliveryR1(trEvents, delEvents)
+	scores := Generate8SpecialDelivery(trEvents, delEvents)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
@@ -1012,7 +1069,7 @@ func L8SpecialDeliveryR1(infile, outfile, accessToken, leaderboardId *string) er
 	return nil
 }
 
-func L9DinnerIsServedR1(infile, outfile, accessToken, leaderboardId *string) error {
+func L9DinnerIsServed(infile, outfile, accessToken, leaderboardId *string) error {
 	events, parseEventsErr := ParseEventFromFile[FoodSupplied](*infile, "FoodSupplied")
 	if parseEventsErr != nil {
 		return parseEventsErr
@@ -1023,7 +1080,7 @@ func L9DinnerIsServedR1(infile, outfile, accessToken, leaderboardId *string) err
 		return parseEventsErr
 	}
 
-	scores := Generate9DinnerIsServedR1(events, eventsV1)
+	scores := Generate9DinnerIsServed(events, eventsV1)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
