@@ -385,7 +385,7 @@ type TransitScore struct {
 	MaterialTypesInCargo map[uint64]bool
 }
 
-func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinished], deReEvents []EventWrapper[DeliveryReceived]) []LeaderboardScore {
+func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinished], unknownEvents []EventWrapper[RawEvent]) []LeaderboardScore {
 	asteroidAPId := uint64(1)
 	cTypeMaterials := map[uint64]bool{
 		1:  true, // Water
@@ -397,67 +397,67 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinish
 		11: true, // Calcite
 	}
 
-	byCrews := make(map[uint64]TransitScore)
-	for _, trfe := range trFinEvents {
-		if trfe.Event.Destination.Id != asteroidAPId {
+	byCrews := make(map[uint64]uint64)
+	for _, tre := range trFinEvents {
+		if tre.Event.Destination.Id != asteroidAPId {
 			continue
 		}
-	DELIVERY_RECEIVED_LOOP:
-		for _, dre := range deReEvents {
-			if dre.Event.BlockNumber < trfe.Event.BlockNumber {
-				// DeliveryReceived should be equal or later then TransitFinished event fired
-				continue
-			}
-			if dre.Event.Dest.Id != asteroidAPId || dre.Event.Dest.Id != trfe.Event.Destination.Id || dre.Event.Origin.Id != trfe.Event.Origin.Id {
-				continue
-			}
-			var transitScores TransitScore
-			if ts, ok := byCrews[trfe.Event.CallerCrew.Id]; ok {
-				transitScores = ts
-			} else {
-				transitScores = TransitScore{
-					MaterialTypesInCargo: make(map[uint64]bool),
-				}
-			}
-			for _, product := range dre.Event.Products.Snapshot {
-				if _, ok := cTypeMaterials[product.Product]; ok {
-					// Filter out C-Type materials
-					continue
-				}
-				transitScores.TotalAmount += product.Amount
-				transitScores.MaterialTypesInCargo[product.Product] = true
-			}
-			byCrews[trfe.Event.CallerCrew.Id] = transitScores
 
-			break DELIVERY_RECEIVED_LOOP
+		var possibleProductsAmount uint64
+
+		cnt := tre.EventLineNumber
+		for _, ue := range unknownEvents {
+			// Check following UNKNOWN events after TransitFinished to find ComponentUpdated with Products
+			if cnt == ue.EventLineNumber-1 {
+				if len(ue.Event.Parameters) < 12 { // Next following items is a pair of ProductId and Amount
+					cnt++ // Try next line
+				} else {
+					cargoParams := ue.Event.Parameters[10:]
+					if len(cargoParams)%2 == 0 {
+					PRODUCTS_LOOP:
+						for i := 0; i <= len(cargoParams)-1; i += 2 {
+							// i = ProductId, i+1 = Amount
+							if cargoParams[i+1].Uint64() == 0 {
+								continue PRODUCTS_LOOP
+							}
+
+							if _, ok := cTypeMaterials[cargoParams[i].Uint64()]; ok {
+								// Filter out C-Type materials
+								continue PRODUCTS_LOOP
+							}
+							possibleProductsAmount += cargoParams[i+1].Uint64()
+						}
+					}
+					cnt++ // Try next line
+				}
+			}
 		}
+		if possibleProductsAmount == 0 {
+			continue
+		}
+		if _, ok := byCrews[tre.Event.CallerCrew.Id]; !ok {
+			byCrews[tre.Event.CallerCrew.Id] = 0
+		}
+		byCrews[tre.Event.CallerCrew.Id] += possibleProductsAmount
 	}
 
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
-		var materialTypes []uint64
-		for materialType, include := range data.MaterialTypesInCargo {
-			if include {
-				materialTypes = append(materialTypes, materialType)
-			}
-		}
-
 		isRequirementComplete := false
 		isMustReachComplete := false
-		if data.TotalAmount >= 500000 {
+		if data >= 500000 {
 			isRequirementComplete = true
 		}
-		if data.TotalAmount >= 100000000 {
+		if data >= 100000000 {
 			isMustReachComplete = true
 		}
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
-			Score:   data.TotalAmount,
+			Score:   data,
 			PointsData: map[string]any{
 				"complete":          isRequirementComplete,
 				"mustReachComplete": isMustReachComplete,
 				"cap":               1000000000,
-				"materialTypes":     materialTypes,
 			},
 		})
 	}
@@ -1154,55 +1154,54 @@ func Generate7ExpandTheColony(conFinEvents []EventWrapper[ConstructionFinished],
 	return scores
 }
 
-type DeliveryScore struct {
-	Origin          Influence_Common_Types_Entity_Entity
-	Destination     Influence_Common_Types_Entity_Entity
-	Products        Core_Array_Span_influence_Common_Types_InventoryItem_InventoryItem
-	CallerCrew      Influence_Common_Types_Entity_Entity
-	cargoHoldAmount uint64
-}
-
-func Generate8SpecialDelivery(trEvents []EventWrapper[TransitFinished], delEvents []EventWrapper[DeliverySent]) []LeaderboardScore {
-	byCrews := make(map[uint64][]DeliveryScore)
+func Generate8SpecialDelivery(trEvents []EventWrapper[TransitFinished], unknownEvents []EventWrapper[RawEvent]) []LeaderboardScore {
+	byCrews := make(map[uint64]uint64)
 	for _, tre := range trEvents {
-		for _, dele := range delEvents {
-			if tre.Event.BlockNumber < dele.Event.BlockNumber {
-				continue
-			}
-			if dele.Event.Origin.Id == tre.Event.Origin.Id && dele.Event.Dest.Id == tre.Event.Destination.Id {
-				if _, ok := byCrews[tre.Event.CallerCrew.Id]; !ok {
-					byCrews[tre.Event.CallerCrew.Id] = []DeliveryScore{}
+
+		var possibleProductsAmount uint64
+
+		cnt := tre.EventLineNumber
+		for _, ue := range unknownEvents {
+			// Check following UNKNOWN events after TransitFinished to find ComponentUpdated with Products
+			if cnt == ue.EventLineNumber-1 {
+				if len(ue.Event.Parameters) < 12 { // Next following items is a pair of ProductId and Amount
+					cnt++ // Try next line
+				} else {
+					cargoParams := ue.Event.Parameters[10:]
+					if len(cargoParams)%2 == 0 {
+					PRODUCTS_LOOP:
+						for i := 0; i <= len(cargoParams)-1; i += 2 {
+							// i = ProductId, i+1 = Amount
+							if cargoParams[i+1].Uint64() == 0 {
+								continue PRODUCTS_LOOP
+							}
+							possibleProductsAmount += cargoParams[i+1].Uint64()
+						}
+					}
+					cnt++ // Try next line
 				}
-				delivery := DeliveryScore{
-					Origin:      tre.Event.Origin,
-					Destination: tre.Event.Destination,
-					CallerCrew:  tre.Event.CallerCrew,
-					Products:    dele.Event.Products,
-				}
-				for _, p := range dele.Event.Products.Snapshot {
-					delivery.cargoHoldAmount += p.Amount
-				}
-				byCrews[tre.Event.CallerCrew.Id] = append(byCrews[tre.Event.CallerCrew.Id], delivery)
 			}
 		}
+		if possibleProductsAmount == 0 {
+			continue
+		}
+		if _, ok := byCrews[tre.Event.CallerCrew.Id]; !ok {
+			byCrews[tre.Event.CallerCrew.Id] = 0
+		}
+		byCrews[tre.Event.CallerCrew.Id] += possibleProductsAmount
 	}
 
 	scores := []LeaderboardScore{}
 	for crew, data := range byCrews {
-		var totalCargoHoldAmount uint64
-		for _, d := range data {
-			totalCargoHoldAmount += d.cargoHoldAmount
-		}
 		is_complete := false
-		if totalCargoHoldAmount >= 1000000 {
+		if data >= 1000000 {
 			is_complete = true
 		}
 		scores = append(scores, LeaderboardScore{
 			Address: fmt.Sprintf("%d", crew),
-			Score:   totalCargoHoldAmount,
+			Score:   data,
 			PointsData: map[string]any{
 				"complete": is_complete,
-				"data":     data,
 			},
 		})
 	}

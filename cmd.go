@@ -711,16 +711,16 @@ func CL7RockBreaker(infile, outfile, accessToken, leaderboardId *string) error {
 }
 
 func CL8GoodNewsEveryone(infile, outfile, accessToken, leaderboardId *string) error {
+	unknownEvents, parseEventsErr := ParseEventFromFile[RawEvent](*infile, "UNKNOWN")
+	if parseEventsErr != nil {
+		return parseEventsErr
+	}
 	trFinEvents, parseEventsErr := ParseEventFromFile[TransitFinished](*infile, "TransitFinished")
 	if parseEventsErr != nil {
 		return parseEventsErr
 	}
-	deReEvents, parseEventsErr := ParseEventFromFile[DeliveryReceived](*infile, "DeliveryReceived")
-	if parseEventsErr != nil {
-		return parseEventsErr
-	}
 
-	scores := GenerateC8GoodNewsEveryoneToScores(trFinEvents, deReEvents)
+	scores := GenerateC8GoodNewsEveryoneToScores(trFinEvents, unknownEvents)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
@@ -1049,17 +1049,16 @@ func L7ExpandTheColony(infile, outfile, accessToken, leaderboardId *string) erro
 }
 
 func L8SpecialDelivery(infile, outfile, accessToken, leaderboardId *string) error {
+	unknownEvents, parseEventsErr := ParseEventFromFile[RawEvent](*infile, "UNKNOWN")
+	if parseEventsErr != nil {
+		return parseEventsErr
+	}
 	trEvents, parseEventsErr := ParseEventFromFile[TransitFinished](*infile, "TransitFinished")
 	if parseEventsErr != nil {
 		return parseEventsErr
 	}
 
-	delEvents, parseEventsErr := ParseEventFromFile[DeliverySent](*infile, "DeliverySent")
-	if parseEventsErr != nil {
-		return parseEventsErr
-	}
-
-	scores := Generate8SpecialDelivery(trEvents, delEvents)
+	scores := Generate8SpecialDelivery(trEvents, unknownEvents)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
