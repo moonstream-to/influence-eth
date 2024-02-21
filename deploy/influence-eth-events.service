@@ -6,7 +6,7 @@ After=network.target
 Type=oneshot
 WorkingDirectory=/home/ubuntu/influence-eth
 EnvironmentFile=/home/ubuntu/influence-eth-secrets/app.env
-ExecStart=/home/ubuntu/influence-eth-env/influence-eth do-everything --contract $INFLUENCE_DISPATCHER_ADDRESS --outfile $INFLUENCE_EVENTS_FILE --batch-size 1000 --from-block-file /home/ubuntu/influence-eth-secrets/from-block.txt
+ExecStart=/home/ubuntu/influence-eth/influence-eth do-everything --contract $INFLUENCE_DISPATCHER_ADDRESS --outfile $INFLUENCE_EVENTS_FILE --batch-size 1000 --from-block-file /home/ubuntu/influence-eth-secrets/from-block.txt
 m-block.txt
 CPUWeight=50
 SyslogIdentifier=influence-eth-events
