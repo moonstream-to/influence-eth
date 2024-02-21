@@ -432,6 +432,24 @@ func CreateDoEverythingCommand() *cobra.Command {
 				}
 			}
 
+			if fromBlock == 0 {
+				fieldAdditiveIdentity := fp.NewElement(0)
+				if contractAddress[:2] == "0x" {
+					contractAddress = contractAddress[2:]
+				}
+				decodedAddress, decodeErr := hex.DecodeString(contractAddress)
+				if decodeErr != nil {
+					return decodeErr
+				}
+				address := felt.NewFelt(&fieldAdditiveIdentity)
+				address.SetBytes(decodedAddress)
+
+				fromBlock, err = DeploymentBlock(ctx, provider, address)
+				if err != nil {
+					return err
+				}
+			}
+
 			latestBlock, err := provider.BlockNumber(ctx)
 			if err != nil {
 				return err

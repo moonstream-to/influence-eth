@@ -44,9 +44,6 @@ echo -e "${PREFIX_INFO} If file from-block.txt does not exists, create new one a
 if [ ! -f "${FROM_BLOCK_FILE_PATH}" ]; then
   touch "${FROM_BLOCK_FILE_PATH}"
   echo -e "${PREFIX_WARN} Created new from-block file at ${FROM_BLOCK_FILE_PATH}"
-  
-  source "${APP_DIR}/starknet.sepolia.env"
-  HOME=/home/ubuntu "${APP_DIR}/influence-eth" find-deployment-block --contract "${INFLUENCE_DISPATCHER_ADDRESS}" > "${FROM_BLOCK_FILE_PATH}"
 fi
 
 echo
