@@ -6,7 +6,7 @@ After=network.target
 Type=oneshot
 WorkingDirectory=/home/ubuntu/influence-eth
 EnvironmentFile=/home/ubuntu/influence-eth-secrets/app.env
-ExecStart=/home/ubuntu/influence-eth/influence-eth leaderboards --infile $INFLUENCE_EVENTS_FILE --leaderboards-map leaderboards-map.json
+ExecStart=/home/ubuntu/influence-eth/influence-eth leaderboards --infile ${INFLUENCE_EVENTS_FILE} --leaderboards-map leaderboards-map.json
 m-block.txt
 CPUWeight=50
 SyslogIdentifier=influence-eth-leaderboards
