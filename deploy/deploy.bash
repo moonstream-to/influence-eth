@@ -43,6 +43,7 @@ echo
 echo -e "${PREFIX_INFO} If file from-block.txt does not exists, create new one and push deployment block of contract"
 if [ ! -f "${FROM_BLOCK_FILE_PATH}" ]; then
   touch "${FROM_BLOCK_FILE_PATH}"
+  echo 0 > "${FROM_BLOCK_FILE_PATH}"
   echo -e "${PREFIX_WARN} Created new from-block file at ${FROM_BLOCK_FILE_PATH}"
 fi
 
