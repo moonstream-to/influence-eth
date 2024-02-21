@@ -1,0 +1,9 @@
+[Unit]
+Description=Update scores at leaderboards
+
+[Timer]
+OnBootSec=480s
+OnUnitActiveSec=10m
+
+[Install]
+WantedBy=timers.target

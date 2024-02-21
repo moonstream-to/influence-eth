@@ -29,6 +29,12 @@ your platform from the [latest `influence-eth` release](https://github.com/moons
 
 ## Building a dataset of Influence.eth events
 
+Find deployment block:
+
+```bash
+influence-eth find-deployment-block --contract $INFLUENCE_DISPATCHER_ADDRESS
+```
+
 To crawl all events for an Influence.eth contract, you can use:
 
 ```bash

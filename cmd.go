@@ -6,9 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"math/big"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -29,12 +32,14 @@ func CreateRootCommand() *cobra.Command {
 
 	completionCmd := CreateCompletionCommand(rootCmd)
 	versionCmd := CreateVersionCommand()
+	blockNumberCmd := CreateBlockNumberCommand()
+	doEverythingCmd := CreateDoEverythingCommand()
 	eventsCmd := CreateEventsCommand()
 	findDeploymentBlockCmd := CreateFindDeploymentCmd()
 	parseCmd := CreateParseCommand()
 	leaderboardCmd := CreateLeaderboardCommand()
 	leaderboardsCmd := CreateLeaderboardsCommand()
-	rootCmd.AddCommand(completionCmd, versionCmd, eventsCmd, findDeploymentBlockCmd, parseCmd, leaderboardCmd, leaderboardsCmd)
+	rootCmd.AddCommand(completionCmd, versionCmd, doEverythingCmd, blockNumberCmd, eventsCmd, findDeploymentBlockCmd, parseCmd, leaderboardCmd, leaderboardsCmd)
 
 	// By default, cobra Command objects write to stderr. We have to forcibly set them to output to
 	// stdout.
@@ -107,6 +112,52 @@ func CreateVersionCommand() *cobra.Command {
 	}
 
 	return versionCmd
+}
+
+func CreateBlockNumberCommand() *cobra.Command {
+	var providerURL string
+	var timeout uint64
+
+	blockNumberCmd := &cobra.Command{
+		Use:   "block-number",
+		Short: "Get the current block number on your Starknet RPC provider",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if providerURL == "" {
+				providerURLFromEnv := os.Getenv("STARKNET_RPC_URL")
+				if providerURLFromEnv == "" {
+					return errors.New("you must provide a provider URL using -p/--provider or set the STARKNET_RPC_URL environment variable")
+				}
+				providerURL = providerURLFromEnv
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, clientErr := rpc.NewClient(providerURL)
+			if clientErr != nil {
+				return clientErr
+			}
+
+			provider := rpc.NewProvider(client)
+
+			ctx := context.Background()
+			if timeout > 0 {
+				ctx, _ = context.WithDeadline(ctx, time.Now().Add(time.Duration(timeout)*time.Second))
+			}
+
+			blockNumber, err := provider.BlockNumber(ctx)
+
+			if err != nil {
+				return err
+			}
+
+			cmd.Println(blockNumber)
+			return nil
+		},
+	}
+	blockNumberCmd.Flags().StringVarP(&providerURL, "provider", "p", "", "The URL of your Starknet RPC provider (defaults to value of STARKNET_RPC_URL environment variable)")
+	blockNumberCmd.Flags().Uint64VarP(&timeout, "timeout", "t", 0, "The timeout for requests to your Starknet RPC provider")
+
+	return blockNumberCmd
 }
 
 func CreateEventsCommand() *cobra.Command {
@@ -326,6 +377,158 @@ func CreateParseCommand() *cobra.Command {
 	parseCmd.Flags().StringVarP(&outfile, "outfile", "o", "", "File to write reparsed events to (defaults to stdout)")
 
 	return parseCmd
+}
+
+func CreateDoEverythingCommand() *cobra.Command {
+	var providerURL, contractAddress, outfile, fromBlockFilePath string
+	var batchSize, coldInterval, hotInterval, hotThreshold, confirmations int
+
+	doEverythingCmd := &cobra.Command{
+		Use:   "do-everything",
+		Short: "Just do everything with events",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if providerURL == "" {
+				providerURLFromEnv := os.Getenv("STARKNET_RPC_URL")
+				if providerURLFromEnv == "" {
+					return errors.New("you must provide a provider URL using -p/--provider or set the STARKNET_RPC_URL environment variable")
+				}
+				providerURL = providerURLFromEnv
+			}
+
+			if fromBlockFilePath == "" {
+				return errors.New("flag --from-block-file should be set")
+			}
+
+			if outfile == "" {
+				return errors.New("flag -o/--outfile should be set")
+			}
+
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, clientErr := rpc.NewClient(providerURL)
+			if clientErr != nil {
+				return clientErr
+			}
+
+			provider := rpc.NewProvider(client)
+			ctx := context.Background()
+
+			eventsChan := make(chan RawEvent)
+
+			var fromBlock uint64
+			fromBlockFile, err := os.Open(fromBlockFilePath)
+			if err != nil {
+				return err
+			}
+			defer fromBlockFile.Close()
+
+			scanner := bufio.NewScanner(fromBlockFile)
+			if scanner.Scan() {
+				blockNumberStr := scanner.Text()
+				fromBlock, err = strconv.ParseUint(blockNumberStr, 10, 64)
+				if err != nil {
+					return err
+				}
+			}
+
+			latestBlock, err := provider.BlockNumber(ctx)
+			if err != nil {
+				return err
+			}
+
+			if fromBlock > latestBlock {
+				return fmt.Errorf("fromBlock %d can not be less then latest block %d", fromBlock, latestBlock)
+			}
+
+			ofp, err := os.Create(outfile)
+			if err != nil {
+				return err
+			}
+			defer ofp.Close()
+
+			fmt.Printf("Starting processing events from block %d to block %d\n", fromBlock, latestBlock)
+
+			go ContractEvents(ctx, provider, contractAddress, eventsChan, hotThreshold, time.Duration(hotInterval)*time.Millisecond, time.Duration(coldInterval)*time.Millisecond, fromBlock, latestBlock, confirmations, batchSize)
+
+			parser, newParserErr := NewEventParser()
+			if newParserErr != nil {
+				return newParserErr
+			}
+
+			newline := []byte("\n")
+
+			batchCounter := 0
+			eventsCounter := big.NewInt(0)
+			for event := range eventsChan {
+				if batchCounter >= 1000 {
+					fmt.Printf("Processed another 1000 events with total %s, working block number %d\n", eventsCounter.String(), event.BlockNumber)
+					batchCounter = 0
+				}
+				batchCounter++
+				eventsCounter.Add(eventsCounter, big.NewInt(1))
+
+				unparsedEvent := ParsedEvent{Name: EVENT_UNKNOWN, Event: event}
+
+				passThrough := true
+
+				parsedEvent, parseErr := parser.Parse(event)
+				if parseErr == nil {
+					passThrough = false
+
+					parsedEventBytes, marshalErr := json.Marshal(parsedEvent)
+					if marshalErr != nil {
+						return marshalErr
+					}
+
+					if _, writeErr := ofp.Write(parsedEventBytes); writeErr != nil {
+						fmt.Printf("Error writing to file: %v\n", writeErr)
+						continue
+					}
+					if _, writeErr := ofp.Write(newline); writeErr != nil {
+						fmt.Printf("Error writing newline to file: %v\n", writeErr)
+						continue
+					}
+				}
+
+				if passThrough {
+					serializedEvent, marshalErr := json.Marshal(unparsedEvent)
+					if marshalErr != nil {
+						return marshalErr
+					}
+					if _, writeErr := ofp.Write(serializedEvent); writeErr != nil {
+						fmt.Printf("Error writing to file: %v\n", writeErr)
+						continue
+					}
+					if _, writeErr := ofp.Write(newline); writeErr != nil {
+						fmt.Printf("Error writing newline to file: %v\n", writeErr)
+						continue
+					}
+				}
+			}
+
+			fmt.Printf("Processed %s events from block %d to block %d\n", eventsCounter.String(), fromBlock, latestBlock)
+
+			writeBlockErr := os.WriteFile(fromBlockFilePath, []byte(fmt.Sprintf("%d", latestBlock)), 0644)
+			if writeBlockErr != nil {
+				return writeBlockErr
+			}
+			fmt.Printf("Updated old block number %d to %d in file %s\n", fromBlock, latestBlock, fromBlockFilePath)
+
+			return nil
+		},
+	}
+	doEverythingCmd.Flags().StringVarP(&providerURL, "provider", "p", "", "The URL of your Starknet RPC provider (defaults to value of STARKNET_RPC_URL environment variable)")
+	doEverythingCmd.Flags().StringVarP(&contractAddress, "contract", "c", "", "The address of the contract from which to crawl events (if not provided, no contract constraint will be specified)")
+	doEverythingCmd.Flags().IntVarP(&batchSize, "batch-size", "N", 100, "The number of events to fetch per batch (defaults to 100)")
+	doEverythingCmd.Flags().IntVar(&hotThreshold, "hot-threshold", 2, "Number of successive iterations which must return events before we consider the crawler hot")
+	doEverythingCmd.Flags().IntVar(&hotInterval, "hot-interval", 100, "Milliseconds at which to poll the provider for updates on the contract while the crawl is hot")
+	doEverythingCmd.Flags().IntVar(&coldInterval, "cold-interval", 10000, "Milliseconds at which to poll the provider for updates on the contract while the crawl is cold")
+	doEverythingCmd.Flags().IntVar(&confirmations, "confirmations", 5, "Number of confirmations to wait for before considering a block canonical")
+	doEverythingCmd.Flags().StringVarP(&fromBlockFilePath, "from-block-file", "f", "", "File contains the block number from which to start crawling")
+	doEverythingCmd.Flags().StringVarP(&outfile, "outfile", "o", "", "File to write reparsed events to")
+
+	return doEverythingCmd
 }
 
 type LeaderboardCommandCreator func(infile, outfile, accessToken, leaderboardId *string) error
