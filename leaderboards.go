@@ -25,6 +25,14 @@ type LeaderboardScore struct {
 	PointsData interface{} `json:"points_data"`
 }
 
+type ScoreDetails struct {
+	Prefix           string `json:"prefix,omitempty"`
+	Postfix          string `json:"postfix,omitempty"`
+	Conversion       uint64 `json:"conversion,omitempty"`
+	ConversionVector string `json:"conversion_vector,omitempty"`
+	AddressName      string `json:"address_name,omitempty"`
+}
+
 type TokenKey struct {
 	Str    string
 	BigInt *big.Int
@@ -197,9 +205,12 @@ func GenerateC1BaseCampToScores(events []EventWrapper[TransitFinished]) []Leader
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data.TotalAmount,
 			PointsData: map[string]any{
-				"complete":  isRequirementComplete,
-				"mustReach": mustReachCounter,
-				"data":      data,
+				"complete":   isRequirementComplete,
+				"must_reach": mustReachCounter,
+				"data":       data,
+				"score_details": ScoreDetails{
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -280,8 +291,12 @@ func GenerateCommunityConstructionsToScores(
 		pointsData := map[string]any{
 			"complete":      false,
 			"buildingTypes": buildingTypes,
-			"mustReach":     mustReachCounter,
+			"must_reach":    mustReachCounter,
 			"data":          data,
+			"score_details": ScoreDetails{
+				Postfix:     " building(s)",
+				AddressName: "Crew",
+			},
 		}
 		if len(data.Constructions) >= 1 {
 			pointsData["complete"] = true
@@ -321,10 +336,14 @@ func GenerateC6TheFleet(events []EventWrapper[ShipAssemblyFinished]) []Leaderboa
 			Address: fmt.Sprintf("%d", crew),
 			Score:   uint64(len(data)),
 			PointsData: map[string]any{
-				"complete":  isRequirementComplete,
-				"mustReach": mustReachCounter,
-				"cap":       1000,
-				"data":      data,
+				"complete":   isRequirementComplete,
+				"must_reach": mustReachCounter,
+				"cap":        1000,
+				"data":       data,
+				"score_details": ScoreDetails{
+					Postfix:     " ship(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -353,9 +372,15 @@ func GenerateC7RockBreaker(events []EventWrapper[ResourceExtractionFinished]) []
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"complete":  isRequirementComplete,
-				"mustReach": mustReachCounter,
-				"cap":       50000000000,
+				"complete":   isRequirementComplete,
+				"must_reach": mustReachCounter,
+				"cap":        50000000000,
+				"score_details": ScoreDetails{
+					Postfix:          " tone(s)",
+					Conversion:       1000,
+					ConversionVector: "divide",
+					AddressName:      "Crew",
+				},
 			},
 		})
 	}
@@ -430,9 +455,15 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinish
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"complete":  isRequirementComplete,
-				"mustReach": mustReachCounter,
-				"cap":       1000000000,
+				"complete":   isRequirementComplete,
+				"must_reach": mustReachCounter,
+				"cap":        1000000000,
+				"score_details": ScoreDetails{
+					Postfix:          " tone(s)",
+					Conversion:       1000,
+					ConversionVector: "divide",
+					AddressName:      "Crew",
+				},
 			},
 		})
 	}
@@ -461,9 +492,13 @@ func GenerateC9ProspectingPaysOff(events []EventWrapper[SamplingDepositFinished]
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"cmplete":   isRequirementComplete,
-				"mustReach": mustReachCounter,
-				"cap":       1000000000,
+				"cmplete":    isRequirementComplete,
+				"must_reach": mustReachCounter,
+				"cap":        1000000000,
+				"score_details": ScoreDetails{
+					Postfix:     " sample(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -504,9 +539,15 @@ func GenerateC10Potluck(stEventsV1 []EventWrapper[MaterialProcessingStartedV1], 
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"complete":  isRequirementComplete,
-				"mustReach": mustReachCounter,
-				"cap":       75000,
+				"complete":   isRequirementComplete,
+				"must_reach": mustReachCounter,
+				"cap":        75000,
+				"score_details": ScoreDetails{
+					Postfix:          " tone(s)",
+					Conversion:       1000,
+					ConversionVector: "divide",
+					AddressName:      "Crew",
+				},
 			},
 		})
 	}
@@ -547,7 +588,7 @@ func GenerateCrewOwnersToScores(events []EventWrapper[Influence_Contracts_Crew_C
 		scores = append(scores, LeaderboardScore{
 			Address: k.Str,
 			Score:   uint64(i + 1),
-			PointsData: map[string]string{
+			PointsData: map[string]any{
 				"data": crewOwners[k.Str],
 			},
 		})
@@ -618,6 +659,10 @@ func Generate1NewRecruitsR1(recEvents []EventWrapper[CrewmateRecruited], recV1Ev
 			Score:   data,
 			PointsData: map[string]any{
 				"complete": is_complete,
+				"score_details": ScoreDetails{
+					Postfix:     " crewmate(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -678,6 +723,10 @@ func Generate1NewRecruitsR2(recEvents []EventWrapper[CrewmateRecruited], recV1Ev
 			PointsData: map[string]any{
 				"complete":      is_complete,
 				"crewmateTypes": crewmateTypes,
+				"score_details": ScoreDetails{
+					Postfix:     " crewmate(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -728,6 +777,10 @@ func Generate2BuriedTreasureR1(stEventsV1 []EventWrapper[MaterialProcessingStart
 			Score:   data,
 			PointsData: map[string]any{
 				"complete": is_complete,
+				"score_details": ScoreDetails{
+					Postfix:     " Core Drill(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -806,6 +859,10 @@ func Generate2BuriedTreasureR2(sdsEvents []EventWrapper[SamplingDepositStarted],
 			PointsData: map[string]any{
 				"complete":    is_complete,
 				"sampleTypes": sampleTypes,
+				"score_details": ScoreDetails{
+					Postfix:     " sample(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -862,6 +919,10 @@ func Generate3MarketMakerR1(buyEvents []EventWrapper[BuyOrderFilled], sellEvents
 			PointsData: map[string]any{
 				"complete": is_complete,
 				"data":     data,
+				"score_details": ScoreDetails{
+					Postfix:     " order(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -907,6 +968,10 @@ func Generate3MarketMakerR2(buyEvents []EventWrapper[BuyOrderCreated], sellEvent
 			PointsData: map[string]any{
 				"complete": is_complete,
 				"data":     data,
+				"score_details": ScoreDetails{
+					Postfix:     " order(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -934,6 +999,12 @@ func Generate4BreakingGroundR1(events []EventWrapper[ResourceExtractionFinished]
 			PointsData: map[string]any{
 				"complete": is_complete,
 				"data":     data,
+				"score_details": ScoreDetails{
+					Postfix:          " tone(s)",
+					Conversion:       1000,
+					ConversionVector: "divide",
+					AddressName:      "Crew",
+				},
 			},
 		})
 	}
@@ -979,6 +1050,10 @@ func Generate4BreakingGroundR2(events []EventWrapper[ResourceExtractionFinished]
 			PointsData: map[string]any{
 				"complete": is_complete,
 				"data":     data,
+				"score_details": ScoreDetails{
+					Postfix:     " resource type(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -1017,6 +1092,10 @@ func Generate5CityBuilder(conFinEvents []EventWrapper[ConstructionFinished], con
 			PointsData: map[string]any{
 				"complete": true,
 				"data":     data,
+				"score_details": ScoreDetails{
+					Postfix:     " building(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -1051,6 +1130,10 @@ func Generate6ExploreTheStarsR1(events []EventWrapper[ShipAssemblyFinished]) []L
 			PointsData: map[string]any{
 				"complete": true,
 				"data":     data,
+				"score_details": ScoreDetails{
+					Postfix:     " ship(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -1082,6 +1165,9 @@ func Generate6ExploreTheStarsR2(events []EventWrapper[TransitFinished]) []Leader
 			Score:   data,
 			PointsData: map[string]any{
 				"complete": is_complete,
+				"score_details": ScoreDetails{
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -1120,6 +1206,10 @@ func Generate7ExpandTheColony(conFinEvents []EventWrapper[ConstructionFinished],
 			PointsData: map[string]any{
 				"complete": true,
 				"data":     data,
+				"score_details": ScoreDetails{
+					Postfix:     " building(s)",
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -1174,6 +1264,9 @@ func Generate8SpecialDelivery(trEvents []EventWrapper[TransitFinished], unknownE
 			Score:   data,
 			PointsData: map[string]any{
 				"complete": is_complete,
+				"score_details": ScoreDetails{
+					AddressName: "Crew",
+				},
 			},
 		})
 	}
@@ -1208,6 +1301,12 @@ func Generate9DinnerIsServed(events []EventWrapper[FoodSupplied], eventsV1 []Eve
 			Score:   data,
 			PointsData: map[string]any{
 				"complete": is_complete,
+				"score_details": ScoreDetails{
+					Postfix:          " tone(s)",
+					Conversion:       1000,
+					ConversionVector: "divide",
+					AddressName:      "Crew",
+				},
 			},
 		})
 	}
