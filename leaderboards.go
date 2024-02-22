@@ -233,7 +233,8 @@ func GenerateCommunityConstructionsToScores(
 	conPlanEvents []EventWrapper[ConstructionPlanned],
 	conFinEvents []EventWrapper[ConstructionFinished],
 	buildingTypes, asteroids map[uint64]bool,
-	cap int,
+	mustReach uint64,
+	cap uint64,
 ) []LeaderboardScore {
 	var mustReachCounter uint64
 
@@ -289,10 +290,11 @@ func GenerateCommunityConstructionsToScores(
 		}
 
 		pointsData := map[string]any{
-			"complete":      false,
-			"buildingTypes": buildingTypes,
-			"must_reach":    mustReachCounter,
-			"data":          data,
+			"complete":           false,
+			"buildingTypes":      buildingTypes,
+			"must_reach_counter": mustReachCounter,
+			"must_reach":         mustReach,
+			"data":               data,
 			"score_details": ScoreDetails{
 				Postfix:     " building(s)",
 				AddressName: "Crew",
@@ -336,10 +338,11 @@ func GenerateC6TheFleet(events []EventWrapper[ShipAssemblyFinished]) []Leaderboa
 			Address: fmt.Sprintf("%d", crew),
 			Score:   uint64(len(data)),
 			PointsData: map[string]any{
-				"complete":   isRequirementComplete,
-				"must_reach": mustReachCounter,
-				"cap":        1000,
-				"data":       data,
+				"complete":           isRequirementComplete,
+				"must_reach_counter": mustReachCounter,
+				"must_reach":         200,
+				"cap":                1000,
+				"data":               data,
 				"score_details": ScoreDetails{
 					Postfix:     " ship(s)",
 					AddressName: "Crew",
@@ -372,9 +375,10 @@ func GenerateC7RockBreaker(events []EventWrapper[ResourceExtractionFinished]) []
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"complete":   isRequirementComplete,
-				"must_reach": mustReachCounter,
-				"cap":        50000000000,
+				"complete":           isRequirementComplete,
+				"must_reach_counter": mustReachCounter,
+				"must_reach":         25000000000,
+				"cap":                50000000000,
 				"score_details": ScoreDetails{
 					Postfix:          " tone(s)",
 					Conversion:       1000,
@@ -455,9 +459,10 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinish
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"complete":   isRequirementComplete,
-				"must_reach": mustReachCounter,
-				"cap":        1000000000,
+				"complete":           isRequirementComplete,
+				"must_reach_counter": mustReachCounter,
+				"must_reach":         100000000,
+				"cap":                1000000000,
 				"score_details": ScoreDetails{
 					Postfix:          " tone(s)",
 					Conversion:       1000,
@@ -492,9 +497,10 @@ func GenerateC9ProspectingPaysOff(events []EventWrapper[SamplingDepositFinished]
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"cmplete":    isRequirementComplete,
-				"must_reach": mustReachCounter,
-				"cap":        1000000000,
+				"cmplete":            isRequirementComplete,
+				"must_reach_counter": mustReachCounter,
+				"must_reach":         500000000,
+				"cap":                1000000000,
 				"score_details": ScoreDetails{
 					Postfix:     " sample(s)",
 					AddressName: "Crew",
@@ -539,9 +545,10 @@ func GenerateC10Potluck(stEventsV1 []EventWrapper[MaterialProcessingStartedV1], 
 			Address: fmt.Sprintf("%d", crew),
 			Score:   data,
 			PointsData: map[string]any{
-				"complete":   isRequirementComplete,
-				"must_reach": mustReachCounter,
-				"cap":        75000,
+				"complete":           isRequirementComplete,
+				"must_reach_counter": mustReachCounter,
+				"must_reach":         20000,
+				"cap":                75000,
 				"score_details": ScoreDetails{
 					Postfix:          " tone(s)",
 					Conversion:       1000,

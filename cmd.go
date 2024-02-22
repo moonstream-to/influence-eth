@@ -810,7 +810,7 @@ func CL2RomulusRemusAndTheRest(infile, outfile, accessToken, leaderboardId *stri
 	asteroids := map[uint64]bool{
 		1: true, // AP
 	}
-	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, nil, asteroids, 75000)
+	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, nil, asteroids, 25000, 75000)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
@@ -834,7 +834,7 @@ func CL3LearnByDoing(infile, outfile, accessToken, leaderboardId *string) error 
 		1: true, // Warehouse
 		2: true, // Extractor
 	}
-	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 30000)
+	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 10000, 30000)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
@@ -860,7 +860,7 @@ func CL4FourPillars(infile, outfile, accessToken, leaderboardId *string) error {
 		5: true, // Factory
 		6: true, // Shipyard
 	}
-	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 15000)
+	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 5000, 15000)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
@@ -885,7 +885,7 @@ func CL5TogetherWeCanRise(infile, outfile, accessToken, leaderboardId *string) e
 		8: true, // Marketplace
 		9: true, // Habitat
 	}
-	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 1000)
+	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 300, 1000)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
