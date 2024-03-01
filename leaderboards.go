@@ -380,7 +380,7 @@ func GenerateC7RockBreaker(events []EventWrapper[ResourceExtractionFinished]) []
 				"must_reach":         25000000000,
 				"cap":                50000000000,
 				"score_details": ScoreDetails{
-					Postfix:          " tone(s)",
+					Postfix:          " ton(s)",
 					Conversion:       1000,
 					ConversionVector: "divide",
 					AddressName:      "Crew",
@@ -464,7 +464,7 @@ func GenerateC8GoodNewsEveryoneToScores(trFinEvents []EventWrapper[TransitFinish
 				"must_reach":         100000000,
 				"cap":                1000000000,
 				"score_details": ScoreDetails{
-					Postfix:          " tone(s)",
+					Postfix:          " ton(s)",
 					Conversion:       1000,
 					ConversionVector: "divide",
 					AddressName:      "Crew",
@@ -550,7 +550,7 @@ func GenerateC10Potluck(stEventsV1 []EventWrapper[MaterialProcessingStartedV1], 
 				"must_reach":         20000,
 				"cap":                75000,
 				"score_details": ScoreDetails{
-					Postfix:          " tone(s)",
+					Postfix:          " ton(s)",
 					Conversion:       1000,
 					ConversionVector: "divide",
 					AddressName:      "Crew",
@@ -1007,7 +1007,7 @@ func Generate4BreakingGroundR1(events []EventWrapper[ResourceExtractionFinished]
 				"complete": is_complete,
 				"data":     data,
 				"score_details": ScoreDetails{
-					Postfix:          " tone(s)",
+					Postfix:          " ton(s)",
 					Conversion:       1000,
 					ConversionVector: "divide",
 					AddressName:      "Crew",
@@ -1309,7 +1309,7 @@ func Generate9DinnerIsServed(events []EventWrapper[FoodSupplied], eventsV1 []Eve
 			PointsData: map[string]any{
 				"complete": is_complete,
 				"score_details": ScoreDetails{
-					Postfix:          " tone(s)",
+					Postfix:          " ton(s)",
 					Conversion:       1000,
 					ConversionVector: "divide",
 					AddressName:      "Crew",

@@ -3,7 +3,7 @@ Description=Update scores at leaderboards
 
 [Timer]
 OnBootSec=480s
-OnUnitActiveSec=10m
+OnUnitActiveSec=3m
 
 [Install]
 WantedBy=timers.target
