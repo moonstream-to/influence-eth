@@ -61,7 +61,7 @@ influence-eth events \
     --batch-size 10000 \
     --from $DEPLOYMENT_BLOCK \
     --to $END_BLOCK \
-    >events.jsonl
+    | tee events.jsonl
 ```
 
 This produces *raw* events. To parse these events from their representation as little more than arrays of

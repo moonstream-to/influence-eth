@@ -165,54 +165,54 @@ func FindAndDeleteBigInt(original []*big.Int, delItem *big.Int) []*big.Int {
 	return original[:idx]
 }
 
-type TransitionScore struct {
-	TotalAmount      uint64
-	VisitedAsteroids map[uint64]uint64
-}
-
 func GenerateC1BaseCampToScores(events []EventWrapper[TransitFinished]) []LeaderboardScore {
 	asteroidAPId := uint64(1)
-	var mustReachCounter uint64
 
-	byCrews := make(map[uint64]TransitionScore)
+	byAsteroidId := make(map[uint64]map[uint64]bool)
 	for _, e := range events {
-		if e.Event.Destination.Id == asteroidAPId {
-			continue
+		if _, ok := byAsteroidId[e.Event.Destination.Id]; !ok {
+			byAsteroidId[e.Event.Destination.Id] = make(map[uint64]bool)
 		}
-		var transitScore TransitionScore
-		if ts, ok := byCrews[e.Event.CallerCrew.Id]; ok {
-			transitScore = ts
-		} else {
-			transitScore = TransitionScore{
-				VisitedAsteroids: make(map[uint64]uint64),
-			}
+		if e.Event.Destination.Id != asteroidAPId {
+			byAsteroidId[e.Event.Destination.Id][e.Event.CallerCrew.Id] = true
 		}
-		transitScore.TotalAmount += 1
-		transitScore.VisitedAsteroids[e.Event.Destination.Id] += 1
-		byCrews[e.Event.CallerCrew.Id] = transitScore
-		mustReachCounter++
+		// Remove from list who left the asteroid
+		delete(byAsteroidId[e.Event.Origin.Id], e.Event.CallerCrew.Id)
 	}
 
 	scores := []LeaderboardScore{}
-	for crew, data := range byCrews {
-		isRequirementComplete := false
+	mustReachCounter := 0
+	for asteroid, crews := range byAsteroidId {
+		numOfCrews := len(crews)
+		if numOfCrews == 0 {
+			continue
+		}
 
-		if data.TotalAmount >= 1 {
+		isRequirementComplete := false
+		if numOfCrews >= 1 {
 			isRequirementComplete = true
+			if asteroid != asteroidAPId {
+				mustReachCounter++
+			}
 		}
 
 		scores = append(scores, LeaderboardScore{
-			Address: fmt.Sprintf("%d", crew),
-			Score:   data.TotalAmount,
+			Address: fmt.Sprintf("%d", asteroid),
+			Score:   uint64(numOfCrews),
 			PointsData: map[string]any{
 				"complete":   isRequirementComplete,
 				"must_reach": mustReachCounter,
-				"data":       data,
+				"data":       crews,
 				"score_details": ScoreDetails{
-					AddressName: "Crew",
+					AddressName: "Asteroid ID",
 				},
 			},
 		})
+	}
+	for i := range scores {
+		if pointsData, ok := scores[i].PointsData.(map[string]any); ok {
+			pointsData["must_reach"] = mustReachCounter
+		}
 	}
 	return scores
 }
