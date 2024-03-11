@@ -201,9 +201,11 @@ func GenerateC1BaseCampToScores(events []EventWrapper[TransitFinished]) []Leader
 			Score:   uint64(numOfCrews),
 			PointsData: map[string]any{
 				"complete":   isRequirementComplete,
-				"must_reach": mustReachCounter,
+				"must_reach": 10,
+				"cap":        10,
 				"data":       crews,
 				"score_details": ScoreDetails{
+					Postfix:     " crew(s)",
 					AddressName: "Asteroid ID",
 				},
 			},
@@ -211,7 +213,7 @@ func GenerateC1BaseCampToScores(events []EventWrapper[TransitFinished]) []Leader
 	}
 	for i := range scores {
 		if pointsData, ok := scores[i].PointsData.(map[string]any); ok {
-			pointsData["must_reach"] = mustReachCounter
+			pointsData["must_reach_counter"] = mustReachCounter
 		}
 	}
 	return scores
