@@ -379,8 +379,8 @@ func GenerateC7RockBreaker(events []EventWrapper[ResourceExtractionFinished]) []
 			PointsData: map[string]any{
 				"complete":           isRequirementComplete,
 				"must_reach_counter": mustReachCounter,
-				"must_reach":         25000000000,
-				"cap":                50000000000,
+				"must_reach":         8000000000,
+				"cap":                25000000000,
 				"score_details": ScoreDetails{
 					Postfix:          " ton(s)",
 					Conversion:       1000,
@@ -501,8 +501,8 @@ func GenerateC9ProspectingPaysOff(events []EventWrapper[SamplingDepositFinished]
 			PointsData: map[string]any{
 				"cmplete":            isRequirementComplete,
 				"must_reach_counter": mustReachCounter,
-				"must_reach":         500000000,
-				"cap":                1000000000,
+				"must_reach":         10000000,
+				"cap":                25000000,
 				"score_details": ScoreDetails{
 					Postfix:     " sample(s)",
 					AddressName: "Crew",
@@ -549,8 +549,8 @@ func GenerateC10Potluck(stEventsV1 []EventWrapper[MaterialProcessingStartedV1], 
 			PointsData: map[string]any{
 				"complete":           isRequirementComplete,
 				"must_reach_counter": mustReachCounter,
-				"must_reach":         20000,
-				"cap":                75000,
+				"must_reach":         15000000,
+				"cap":                30000000,
 				"score_details": ScoreDetails{
 					Postfix:          " ton(s)",
 					Conversion:       1000,

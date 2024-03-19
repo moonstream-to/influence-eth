@@ -527,11 +527,12 @@ func CreateDoEverythingCommand() *cobra.Command {
 
 			fmt.Printf("Processed %s events from block %d to block %d\n", eventsCounter.String(), fromBlock, latestBlock)
 
-			writeBlockErr := os.WriteFile(fromBlockFilePath, []byte(fmt.Sprintf("%d", latestBlock)), 0644)
+			recordedBlock := latestBlock + 1
+			writeBlockErr := os.WriteFile(fromBlockFilePath, []byte(fmt.Sprintf("%d", recordedBlock)), 0644)
 			if writeBlockErr != nil {
 				return writeBlockErr
 			}
-			fmt.Printf("Updated old block number %d to %d in file %s\n", fromBlock, latestBlock, fromBlockFilePath)
+			fmt.Printf("Updated old block number %d to %d in file %s\n", fromBlock, recordedBlock, fromBlockFilePath)
 
 			return nil
 		},
@@ -810,7 +811,7 @@ func CL2RomulusRemusAndTheRest(infile, outfile, accessToken, leaderboardId *stri
 	asteroids := map[uint64]bool{
 		1: true, // AP
 	}
-	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, nil, asteroids, 25000, 75000)
+	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, nil, asteroids, 5000, 15000)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
@@ -834,7 +835,7 @@ func CL3LearnByDoing(infile, outfile, accessToken, leaderboardId *string) error 
 		1: true, // Warehouse
 		2: true, // Extractor
 	}
-	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 10000, 30000)
+	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 4000, 10000)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
@@ -860,7 +861,7 @@ func CL4FourPillars(infile, outfile, accessToken, leaderboardId *string) error {
 		5: true, // Factory
 		6: true, // Shipyard
 	}
-	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 5000, 15000)
+	scores := GenerateCommunityConstructionsToScores(conPlanEvents, conFinEvents, buildingTypes, nil, 2000, 5000)
 
 	outErr := PrepareLeaderboardOutput(scores, *outfile, *accessToken, *leaderboardId)
 	if outErr != nil {
