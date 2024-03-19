@@ -990,9 +990,6 @@ func Generate3MarketMakerR2(buyEvents []EventWrapper[BuyOrderCreated], sellEvent
 func Generate4BreakingGroundR1(events []EventWrapper[ResourceExtractionFinished]) []LeaderboardScore {
 	byCrews := make(map[uint64]uint64)
 	for _, e := range events {
-		if e.Event.CallerCrew.Id != 2758 {
-			continue
-		}
 		if _, ok := byCrews[e.Event.CallerCrew.Id]; !ok {
 			byCrews[e.Event.CallerCrew.Id] = 0
 		}
