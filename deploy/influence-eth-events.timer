@@ -3,7 +3,7 @@ Description=Run events fulfill service
 
 [Timer]
 OnBootSec=120s
-OnUnitActiveSec=2m
+OnUnitActiveSec=10m
 
 [Install]
 WantedBy=timers.target
