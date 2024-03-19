@@ -456,7 +456,8 @@ func CreateDoEverythingCommand() *cobra.Command {
 			}
 
 			if fromBlock > latestBlock {
-				return fmt.Errorf("fromBlock %d can not be less then latest block %d", fromBlock, latestBlock)
+				log.Printf("fromBlock %d can not be less then latest block %d", fromBlock, latestBlock)
+				return nil
 			}
 
 			ofp, err := os.OpenFile(outfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
